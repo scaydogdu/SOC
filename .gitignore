@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.coverage
+.hypothesis/
+.import_linter_cache/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.sqlite*
+.DS_Store

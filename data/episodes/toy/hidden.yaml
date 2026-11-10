@@ -1,0 +1,26 @@
+preferences:
+- id: H1
+  text: Keep examples terse.
+  brief_clause_ids:
+  - B1
+- id: H2
+  text: Prefer active voice.
+  brief_clause_ids:
+  - B1
+- id: H3
+  text: Preserve role labels.
+  brief_clause_ids:
+  - B1
+- id: H4
+  text: Use Turkish punctuation.
+  brief_clause_ids:
+  - B1
+- id: H5
+  text: Expand initialisms at first mention.
+  brief_clause_ids:
+  - B1
+planted_errors:
+- id: P1
+  chunk: 2
+  sentence_id: 9999-1-s03
+  kind: normative_force

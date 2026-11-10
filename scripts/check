@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+set -eu
+uv run --locked --offline ruff check .
+uv run --locked --offline ruff format --check .
+uv run --locked --offline mypy
+uv run --locked --offline lint-imports
+uv run --locked --offline pytest --cov --cov-report=term-missing
+uv run --locked --offline coverage json -q -o - | uv run --locked --offline python scripts/check_branch_coverage.py

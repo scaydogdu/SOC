@@ -1,0 +1,2 @@
+{"decision_id": "D1", "repair": [{"chunk": 3, "sentence_id": "9999-2-s01"}], "apply": [{"chunk": 4, "sentence_id": "9999-2-s03"}]}
+{"decision_id": "D5", "repair": [{"chunk": 3, "sentence_id": "9999-2-s02"}], "apply": [{"chunk": 4, "sentence_id": "9999-2-s04"}]}

@@ -1,0 +1,8 @@
+{"id": "9999-1-s01", "section": "1", "text": "An access token lets the client use a resource. ", "scope_keys": ["access token", "client"], "reading_text": "An access token lets the client use a resource."}
+{"id": "9999-1-s02", "section": "1", "text": "A refresh token can renew access.", "scope_keys": ["refresh token"], "reading_text": "A refresh token can renew access."}
+{"id": "9999-1-s03", "section": "1", "text": "The client MUST protect the access token and refresh token. ", "scope_keys": ["access token", "refresh token", "client", "MUST"], "reading_text": "The client MUST protect the access token and refresh token."}
+{"id": "9999-1-s04", "section": "1", "text": "The exception applies only to public clients.", "scope_keys": ["public client"], "reading_text": "The exception applies only to public clients."}
+{"id": "9999-2-s01", "section": "2", "text": "The client MUST protect both the access token and refresh token. ", "scope_keys": ["access token", "refresh token", "client", "MUST"], "reading_text": "The client MUST protect both the access token and refresh token."}
+{"id": "9999-2-s02", "section": "2", "text": "Apply the exception only to public clients.", "scope_keys": ["public client"], "reading_text": "Apply the exception only to public clients."}
+{"id": "9999-2-s03", "section": "2", "text": "The client MUST protect the access token and refresh token. ", "scope_keys": ["access token", "refresh token", "client", "MUST"], "reading_text": "The client MUST protect the access token and refresh token."}
+{"id": "9999-2-s04", "section": "2", "text": "The exception applies only to native public clients.", "scope_keys": ["public client"], "reading_text": "The exception applies only to native public clients."}

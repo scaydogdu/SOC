@@ -1,0 +1,65 @@
+chunks:
+- sentence_ids:
+  - 9999-1-s01
+  - 9999-1-s02
+- sentence_ids:
+  - 9999-1-s03
+  - 9999-1-s04
+- sentence_ids:
+  - 9999-2-s01
+  - 9999-2-s02
+- sentence_ids:
+  - 9999-2-s03
+  - 9999-2-s04
+executor_change_after: 2
+brief_change:
+  chunk: 3
+  clauses:
+  - id: B2
+    text: Use erişim belirteci and limit the exception to native public clients.
+  revisions:
+  - decision_id: D1
+    value: erişim belirteci
+  - decision_id: D5
+    value: Yalnızca yerel genel istemciler
+approvals:
+- decision_id: D1
+  kind: term
+  chunk: 1
+  brief_clause_ids:
+  - B1
+  value: erişim jetonu
+  scope_keys:
+  - access token
+- decision_id: D2
+  kind: term
+  chunk: 1
+  brief_clause_ids:
+  - B1
+  value: yenileme belirteci
+  scope_keys:
+  - refresh token
+- decision_id: D3
+  kind: term
+  chunk: 1
+  brief_clause_ids:
+  - B1
+  value: istemci
+  scope_keys:
+  - client
+- decision_id: D4
+  kind: non_lexical
+  chunk: 1
+  brief_clause_ids:
+  - B1
+  value: Bağlayıcı yükümlülük
+  scope_keys:
+  - MUST
+- decision_id: D5
+  kind: scope_limited
+  chunk: 1
+  brief_clause_ids:
+  - B1
+  value: Yalnızca genel istemciler
+  scope_keys:
+  - public client
