@@ -1,0 +1,17 @@
+[
+  {
+    "@id": "urn:soc:event:brief",
+    "@type": [
+      "prov:Activity",
+      "LedgerEvent",
+      "BriefChange"
+    ],
+    "sequence": 1,
+    "eventType": "BriefChanged",
+    "actor": "urn:soc:agent:other"
+  },
+  {
+    "@id": "urn:soc:agent:other",
+    "role": "executor"
+  }
+]

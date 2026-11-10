@@ -1,0 +1,75 @@
+[
+  {
+    "@id": "urn:soc:commitment:D1",
+    "@type": "Commitment",
+    "operation": "urn:soc:operation:toy",
+    "owner": "urn:soc:agent:owner",
+    "debtor": "urn:soc:agent:client",
+    "creditor": "urn:soc:agent:reader"
+  },
+  {
+    "@id": "urn:soc:version:D1/1",
+    "@type": "CommitmentVersion",
+    "commitment": "urn:soc:commitment:D1",
+    "version": 1,
+    "scope": [
+      "access token"
+    ],
+    "rendering": "erişim jetonu",
+    "rationale": "Client terminology",
+    "evidence": [
+      "source:9999-1-s01",
+      "brief:B1"
+    ],
+    "proposer": "urn:soc:agent:translator",
+    "ratifier": "urn:soc:agent:owner",
+    "consistency": "ONE",
+    "state": "ratified",
+    "validFrom": 1,
+    "sourceQuote": {
+      "sentenceId": "9999-1-s01",
+      "text": "access token"
+    },
+    "checkableRule": {
+      "kind": "term",
+      "parameters": "{\"term\": \"access token\"}"
+    }
+  },
+  {
+    "@id": "urn:soc:event:rebind",
+    "@type": [
+      "prov:Activity",
+      "LedgerEvent"
+    ],
+    "sequence": 3,
+    "eventType": "ExecutorRebound",
+    "actor": "urn:soc:agent:owner"
+  },
+  {
+    "@id": "urn:soc:agent:owner",
+    "role": "principal"
+  },
+  {
+    "@id": "urn:soc:executor:toy/m1",
+    "@type": "prov:SoftwareAgent",
+    "actedOnBehalfOf": "urn:soc:agent:owner"
+  },
+  {
+    "@id": "urn:soc:epoch:toy/0",
+    "@type": "ExecutorEpoch",
+    "executor": "urn:soc:executor:toy/m1",
+    "validFrom": 0,
+    "validUntil": 3
+  },
+  {
+    "@id": "urn:soc:executor:toy/m2",
+    "@type": "prov:SoftwareAgent",
+    "actedOnBehalfOf": "urn:soc:agent:owner"
+  },
+  {
+    "@id": "urn:soc:epoch:toy/3",
+    "@type": "ExecutorEpoch",
+    "executor": "urn:soc:executor:toy/m2",
+    "validFrom": 3
+  }
+]

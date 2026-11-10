@@ -1,0 +1,261 @@
+[
+  {
+    "@id": "urn:soc:commitment:D1",
+    "@type": "Commitment",
+    "operation": "urn:soc:operation:toy",
+    "owner": "urn:soc:agent:owner",
+    "debtor": "urn:soc:agent:client",
+    "creditor": "urn:soc:agent:reader"
+  },
+  {
+    "@id": "urn:soc:version:D1/1",
+    "@type": "CommitmentVersion",
+    "commitment": "urn:soc:commitment:D1",
+    "version": 1,
+    "scope": [
+      "access token"
+    ],
+    "rendering": "erişim jetonu",
+    "rationale": "Client terminology",
+    "evidence": [
+      "source:9999-1-s01",
+      "brief:B1"
+    ],
+    "proposer": "urn:soc:agent:translator",
+    "ratifier": "urn:soc:agent:owner",
+    "consistency": "ONE",
+    "state": "proposed",
+    "validFrom": 1,
+    "validUntil": 2,
+    "sourceQuote": {
+      "sentenceId": "9999-1-s01",
+      "text": "access token"
+    },
+    "checkableRule": {
+      "kind": "term",
+      "parameters": "{\"term\": \"access token\"}"
+    }
+  },
+  {
+    "@id": "urn:soc:commitment:D1",
+    "@type": "Commitment",
+    "operation": "urn:soc:operation:toy",
+    "owner": "urn:soc:agent:owner",
+    "debtor": "urn:soc:agent:client",
+    "creditor": "urn:soc:agent:reader"
+  },
+  {
+    "@id": "urn:soc:version:D1/2",
+    "@type": "CommitmentVersion",
+    "commitment": "urn:soc:commitment:D1",
+    "version": 2,
+    "scope": [
+      "access token"
+    ],
+    "rendering": "erişim jetonu",
+    "rationale": "Client terminology",
+    "evidence": [
+      "source:9999-1-s01",
+      "brief:B1"
+    ],
+    "proposer": "urn:soc:agent:translator",
+    "ratifier": "urn:soc:agent:owner",
+    "consistency": "QUORUM",
+    "state": "provisional",
+    "validFrom": 2,
+    "validUntil": 3,
+    "sourceQuote": {
+      "sentenceId": "9999-1-s01",
+      "text": "access token"
+    },
+    "checkableRule": {
+      "kind": "term",
+      "parameters": "{\"term\": \"access token\"}"
+    }
+  },
+  {
+    "@id": "urn:soc:commitment:D1",
+    "@type": "Commitment",
+    "operation": "urn:soc:operation:toy",
+    "owner": "urn:soc:agent:owner",
+    "debtor": "urn:soc:agent:client",
+    "creditor": "urn:soc:agent:reader"
+  },
+  {
+    "@id": "urn:soc:version:D1/3",
+    "@type": "CommitmentVersion",
+    "commitment": "urn:soc:commitment:D1",
+    "version": 3,
+    "scope": [
+      "access token"
+    ],
+    "rendering": "erişim jetonu",
+    "rationale": "Client terminology",
+    "evidence": [
+      "source:9999-1-s01",
+      "brief:B1"
+    ],
+    "proposer": "urn:soc:agent:translator",
+    "ratifier": "urn:soc:agent:owner",
+    "consistency": "ALL",
+    "state": "ratified",
+    "validFrom": 3,
+    "validUntil": 4,
+    "sourceQuote": {
+      "sentenceId": "9999-1-s01",
+      "text": "access token"
+    },
+    "checkableRule": {
+      "kind": "term",
+      "parameters": "{\"term\": \"access token\"}"
+    }
+  },
+  {
+    "@id": "urn:soc:commitment:D1",
+    "@type": "Commitment",
+    "operation": "urn:soc:operation:toy",
+    "owner": "urn:soc:agent:owner",
+    "debtor": "urn:soc:agent:client",
+    "creditor": "urn:soc:agent:reader"
+  },
+  {
+    "@id": "urn:soc:version:D1/4",
+    "@type": "CommitmentVersion",
+    "commitment": "urn:soc:commitment:D1",
+    "version": 4,
+    "scope": [
+      "access token"
+    ],
+    "rendering": "erişim jetonu",
+    "rationale": "Client terminology",
+    "evidence": [
+      "source:9999-1-s01",
+      "brief:B1"
+    ],
+    "proposer": "urn:soc:agent:translator",
+    "ratifier": "urn:soc:agent:owner",
+    "consistency": "SERIAL",
+    "state": "contested",
+    "validFrom": 4,
+    "validUntil": 5,
+    "sourceQuote": {
+      "sentenceId": "9999-1-s01",
+      "text": "access token"
+    },
+    "checkableRule": {
+      "kind": "term",
+      "parameters": "{\"term\": \"access token\"}"
+    }
+  },
+  {
+    "@id": "urn:soc:commitment:D1",
+    "@type": "Commitment",
+    "operation": "urn:soc:operation:toy",
+    "owner": "urn:soc:agent:owner",
+    "debtor": "urn:soc:agent:client",
+    "creditor": "urn:soc:agent:reader"
+  },
+  {
+    "@id": "urn:soc:version:D1/5",
+    "@type": "CommitmentVersion",
+    "commitment": "urn:soc:commitment:D1",
+    "version": 5,
+    "scope": [
+      "access token"
+    ],
+    "rendering": "erişim jetonu",
+    "rationale": "Client terminology",
+    "evidence": [
+      "source:9999-1-s01",
+      "brief:B1"
+    ],
+    "proposer": "urn:soc:agent:translator",
+    "ratifier": "urn:soc:agent:owner",
+    "consistency": "ONE",
+    "state": "amended",
+    "validFrom": 5,
+    "validUntil": 6,
+    "sourceQuote": {
+      "sentenceId": "9999-1-s01",
+      "text": "access token"
+    },
+    "checkableRule": {
+      "kind": "term",
+      "parameters": "{\"term\": \"access token\"}"
+    }
+  },
+  {
+    "@id": "urn:soc:commitment:D1",
+    "@type": "Commitment",
+    "operation": "urn:soc:operation:toy",
+    "owner": "urn:soc:agent:owner",
+    "debtor": "urn:soc:agent:client",
+    "creditor": "urn:soc:agent:reader"
+  },
+  {
+    "@id": "urn:soc:version:D1/6",
+    "@type": "CommitmentVersion",
+    "commitment": "urn:soc:commitment:D1",
+    "version": 6,
+    "scope": [
+      "access token"
+    ],
+    "rendering": "erişim jetonu",
+    "rationale": "Client terminology",
+    "evidence": [
+      "source:9999-1-s01",
+      "brief:B1"
+    ],
+    "proposer": "urn:soc:agent:translator",
+    "ratifier": "urn:soc:agent:owner",
+    "consistency": "QUORUM",
+    "state": "superseded",
+    "validFrom": 6,
+    "validUntil": 7,
+    "sourceQuote": {
+      "sentenceId": "9999-1-s01",
+      "text": "access token"
+    },
+    "checkableRule": {
+      "kind": "term",
+      "parameters": "{\"term\": \"access token\"}"
+    }
+  },
+  {
+    "@id": "urn:soc:commitment:D1",
+    "@type": "Commitment",
+    "operation": "urn:soc:operation:toy",
+    "owner": "urn:soc:agent:owner",
+    "debtor": "urn:soc:agent:client",
+    "creditor": "urn:soc:agent:reader"
+  },
+  {
+    "@id": "urn:soc:version:D1/7",
+    "@type": "CommitmentVersion",
+    "commitment": "urn:soc:commitment:D1",
+    "version": 7,
+    "scope": [
+      "access token"
+    ],
+    "rendering": "erişim jetonu",
+    "rationale": "Client terminology",
+    "evidence": [
+      "source:9999-1-s01",
+      "brief:B1"
+    ],
+    "proposer": "urn:soc:agent:translator",
+    "ratifier": "urn:soc:agent:owner",
+    "consistency": "ALL",
+    "state": "revoked",
+    "validFrom": 7,
+    "validUntil": 8,
+    "sourceQuote": {
+      "sentenceId": "9999-1-s01",
+      "text": "access token"
+    },
+    "checkableRule": {
+      "kind": "term",
+      "parameters": "{\"term\": \"access token\"}"
+    }
+  }
+]

@@ -1,0 +1,20 @@
+{
+  "@context": {
+    "@vocab": "https://w3id.org/soc-testbed#",
+    "soc": "https://w3id.org/soc-testbed#",
+    "prov": "http://www.w3.org/ns/prov#",
+    "commitment": {"@type": "@id"},
+    "operation": {"@type": "@id"},
+    "owner": {"@type": "@id"},
+    "debtor": {"@type": "@id"},
+    "creditor": {"@type": "@id"},
+    "actor": {"@type": "@id"},
+    "proposer": {"@type": "@id"},
+    "ratifier": {"@type": "@id"},
+    "antecedent": {"@type": "@id"},
+    "consequent": {"@type": "@id"},
+    "executor": {"@type": "@id"},
+    "wasRevisionOf": {"@id": "prov:wasRevisionOf", "@type": "@id"},
+    "actedOnBehalfOf": {"@id": "prov:actedOnBehalfOf", "@type": "@id"}
+  }
+}

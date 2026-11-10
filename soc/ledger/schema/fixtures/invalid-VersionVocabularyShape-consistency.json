@@ -1,0 +1,38 @@
+[
+  {
+    "@id": "urn:soc:commitment:D1",
+    "@type": "Commitment",
+    "operation": "urn:soc:operation:toy",
+    "owner": "urn:soc:agent:owner",
+    "debtor": "urn:soc:agent:client",
+    "creditor": "urn:soc:agent:reader"
+  },
+  {
+    "@id": "urn:soc:version:D1/1",
+    "@type": "CommitmentVersion",
+    "commitment": "urn:soc:commitment:D1",
+    "version": 1,
+    "scope": [
+      "access token"
+    ],
+    "rendering": "erişim jetonu",
+    "rationale": "Client terminology",
+    "evidence": [
+      "source:9999-1-s01",
+      "brief:B1"
+    ],
+    "proposer": "urn:soc:agent:translator",
+    "ratifier": "urn:soc:agent:owner",
+    "consistency": "MAJORITY",
+    "state": "ratified",
+    "validFrom": 1,
+    "sourceQuote": {
+      "sentenceId": "9999-1-s01",
+      "text": "access token"
+    },
+    "checkableRule": {
+      "kind": "term",
+      "parameters": "{\"term\": \"access token\"}"
+    }
+  }
+]

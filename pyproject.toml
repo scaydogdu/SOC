@@ -33,6 +33,9 @@ files = ["soc", "eval"]
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "--disable-socket"
+filterwarnings = [
+    "ignore:ConjunctiveGraph is deprecated, use Dataset instead:DeprecationWarning:rdflib.plugins.parsers.jsonld",
+]
 
 [tool.coverage.run]
 branch = true

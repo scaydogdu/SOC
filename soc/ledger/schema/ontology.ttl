@@ -1,0 +1,22 @@
+@prefix soc: <https://w3id.org/soc-testbed#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+soc: a owl:Ontology .
+soc:Commitment a owl:Class ; rdfs:subClassOf prov:Entity .
+soc:CommitmentVersion a owl:Class ; rdfs:subClassOf prov:Entity .
+soc:ExecutorEpoch a owl:Class ; rdfs:subClassOf prov:Entity .
+soc:RevisionEvent a owl:Class ; rdfs:subClassOf prov:Activity .
+soc:Ratification a owl:Class ; rdfs:subClassOf prov:Activity .
+soc:BriefChange a owl:Class ; rdfs:subClassOf prov:Activity .
+soc:LedgerEvent a owl:Class ; rdfs:subClassOf prov:Activity .
+soc:debtor a owl:ObjectProperty .
+soc:creditor a owl:ObjectProperty .
+soc:antecedent a owl:ObjectProperty .
+soc:consequent a owl:ObjectProperty .
+soc:owner a owl:ObjectProperty .
+soc:commitment a owl:ObjectProperty .
+soc:operation a owl:ObjectProperty .
+soc:checkableRule a owl:ObjectProperty .
+soc:sourceQuote a owl:ObjectProperty .
