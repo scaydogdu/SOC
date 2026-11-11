@@ -93,6 +93,9 @@ def _parts(
                 label = number if style == "bare" else f"Section {number} of {label}"
             yield from _parts(child, raw, citations)
             yield "reference", label
+        elif child.tag == "contact" and (fullname := child.get("fullname")):
+            yield from _parts(child, raw, citations)
+            yield "contact", fullname
         elif child.tag not in {"name", "section"}:
             if child.tag in BLOCK:
                 yield "boundary", ""
@@ -122,11 +125,14 @@ def _prose(parts: list[tuple[str, str]]) -> Iterator[tuple[str, str, bool]]:
     # Map reading-text boundaries back to exact section-text boundaries.
     exact = []
     reading = []
+    split_input = []
     offsets = [0]
     position = 0
     for kind, text in parts:
         reading.append(text)
-        if kind == "reference":
+        # Periods within an inline contact name cannot end a sentence.
+        split_input.append(text.replace(".", "\u2024") if kind == "contact" else text)
+        if kind in {"reference", "contact"}:
             offsets.extend([position] * len(text))
         else:
             exact.append(text)
@@ -134,16 +140,21 @@ def _prose(parts: list[tuple[str, str]]) -> Iterator[tuple[str, str, bool]]:
             position += len(text)
     raw = "".join(exact)
     start = 0
-    for sentence in split_sentences("".join(reading)):
+    rendered = "".join(reading)
+    for sentence in split_sentences("".join(split_input)):
         end = start + len(sentence)
-        yield raw[offsets[start] : offsets[end]], " ".join(sentence.split()), True
+        yield (
+            raw[offsets[start] : offsets[end]],
+            " ".join(rendered[start:end].split()),
+            True,
+        )
         start = end
 
 
 def _segments(parts: Iterable[tuple[str, str]]) -> Iterator[tuple[str, str, bool]]:
     buffer: list[tuple[str, str]] = []
     for kind, value in parts:
-        if kind in {"text", "reference"}:
+        if kind in {"text", "reference", "contact"}:
             buffer.append((kind, value))
             continue
         if buffer and (kind == "verbatim" or any(text.strip() for _, text in buffer)):

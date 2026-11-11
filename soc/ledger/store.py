@@ -196,6 +196,11 @@ class Ledger:
         return any(
             row.rendering == rendering and scope in row.scope
             for row in self._live.tombstones
+        ) and not any(
+            ruling.state != "revoked"
+            and ruling.rendering == rendering
+            and scope in ruling.scope
+            for ruling in self._live.current.values()
         )
 
     def reader(self) -> Reader:
@@ -350,21 +355,29 @@ class Ledger:
                 nodes=nodes,
                 links=links,
             )
-            if kind == "Superseded":
-                assert previous is not None
-                self._append(
-                    "Tombstoned",
-                    actor,
-                    Tombstone(
-                        rendering=previous.version.rendering,
-                        scope=previous.version.scope,
+            if previous is not None and previous.version.state != "revoked":
+                lost_scope = dict.fromkeys(previous.version.scope)
+                if (
+                    version.state != "revoked"
+                    and version.rendering == previous.version.rendering
+                ):
+                    lost_scope = dict.fromkeys(
+                        key for key in lost_scope if key not in version.scope
+                    )
+                if lost_scope:
+                    self._append(
+                        "Tombstoned",
+                        actor,
+                        Tombstone(
+                            rendering=previous.version.rendering,
+                            scope=list(lost_scope),
+                            commitment_id=commitment_id,
+                            version=actual,
+                        ),
                         commitment_id=commitment_id,
-                        version=actual,
-                    ),
-                    commitment_id=commitment_id,
-                    base_version=actual,
-                    nodes=version_nodes(identity, previous.version),
-                )
+                        base_version=actual,
+                        nodes=version_nodes(identity, previous.version),
+                    )
             return event
 
     def record(
@@ -534,7 +547,7 @@ class Reader:
             )
         self._version = version
         return {
-            identity: entry.model_copy(deep=True)
+            identity: entry.model_copy(update={"valid_until": None}, deep=True)
             for (identity, _), entry in state.versions.items()
             if entry.valid_from <= version
             and (entry.valid_until is None or version < entry.valid_until)

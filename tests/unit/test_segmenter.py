@@ -144,3 +144,11 @@ def test_rfc9700_plural_count():
     ]
     assert len(plural) == 53
     assert all("access token" in s.scope_keys for s in plural)
+
+
+def test_acknowledgements_include_inline_contact_names():
+    record = next(item for item in segment(RFC.read_bytes()) if item.id == "9700-A-s01")
+    assert record.reading_text.startswith("We would like to thank Brock Allen,")
+    assert "Michael B. Jones," in record.reading_text
+    assert record.reading_text.endswith("Hans Zandbelt for their valuable feedback.")
+    assert "Brock Allen" not in record.text

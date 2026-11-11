@@ -50,3 +50,15 @@ Toy validation used one warm-up run followed by ten fresh toy runs with 13 write
 The later event types have payload models only. Provider calls, orchestration, prompt builders, and evaluation remain outside M0. The ledger verifies external source and brief references when supplied the public episode. Standalone callers receive structural validation for those references. Authority uses the supplied actor identities and roles, with caller authentication left to integration.
 
 Can's remaining decisions are recorded in [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md).
+
+## Second review follow-up
+
+The ledger now records the scopes each version change removes from the previous rendering. The tombstone append shares the version change's transaction. A rendering still used by any current commitment in a scope remains allowed there. Historical reads show the validity interval visible at the requested ledger version.
+
+The widened state machine models three commitments, overlapping scopes, recurring renderings, unauthorized changes, stale writes, and chunk builds. It checks every historical reader result against replay to that version and checks the tombstone lookup against the model. A separate test injects a failed tombstone append and confirms that the version change is invisible to another connection and rolls back. The test failed when a separate commit was deliberately inserted on a scratch copy.
+
+RFC 9700 acknowledgements now include the inline contact names in reading text. The section round trip still passes.
+
+The offline suite reported **65 passed in 31.72 seconds**, with **33.64 seconds** elapsed for the full check script. Branch coverage was **96.8%** for the ledger, **98.1%** for episodes, and **98.5%** for the segmenter. Ruff, strict mypy, and the import contract passed. The second review's design questions remain in [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md).
+
+The expanded Hypothesis run completed with **10,000 passing sequences and zero failures**. Seeds 801 through 810 each produced 1,000 passing sequences, with a longest run of 108.67 seconds. Reproduce each seed with the documented command and `SOC_LEDGER_EXAMPLES=1000`. The updated toy workload measured **4.100 ms median** and **9.810 ms p95** for validation per write over 130 writes.

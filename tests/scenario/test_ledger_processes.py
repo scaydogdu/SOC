@@ -12,9 +12,8 @@ def _writer(path, barrier, index):
             visible = ledger.snapshot().current.get(IDENTITY.id)
             base = visible.version if visible is not None else 0
             barrier.wait(timeout=30)
-            rendering = f"writer {index} attempt {round_number}"
-            ruling = RULING.model_copy(update={"rendering": rendering})
-            event = ledger.ratify(OWNER, IDENTITY, base, ruling, rendering)
+            reason = f"writer {index} attempt {round_number}"
+            event = ledger.ratify(OWNER, IDENTITY, base, RULING, reason)
             assert event.type in {"Ratified", "ConflictRaised"}
             barrier.wait(timeout=30)
 

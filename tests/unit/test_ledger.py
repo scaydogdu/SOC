@@ -264,3 +264,74 @@ def test_episode_citations_are_checked_inside_write(tmp_path):
             OWNER, IDENTITY.model_copy(update={"id": "D2"}), 0, evidence, "supported"
         )
         assert ledger.snapshot().ledger_version == 3
+
+
+def test_scope_narrowing_tombstones_only_the_lost_scope(tmp_path):
+    with Ledger(tmp_path / "narrow.sqlite", "toy") as ledger:
+        original = RULING.model_copy(update={"scope": ["sec-A", "sec-B"]})
+        ledger.ratify(OWNER, IDENTITY, 0, original, "initial")
+        replacement = original.model_copy(update={"scope": ["sec-A"]})
+        ledger.transition("Superseded", OWNER, IDENTITY.id, 1, replacement, "narrow")
+        assert not ledger.is_tombstoned(original.rendering, "sec-A")
+        assert ledger.is_tombstoned(original.rendering, "sec-B")
+        assert [item.scope for item in ledger.snapshot().tombstones] == [["sec-B"]]
+
+
+def test_revision_tombstones_old_rendering_until_readopted(tmp_path):
+    with Ledger(tmp_path / "readopt.sqlite", "toy") as ledger:
+        ledger.ratify(OWNER, IDENTITY, 0, RULING, "initial")
+        replacement = RULING.model_copy(
+            update={"rendering": "jeton", "state": "amended"}
+        )
+        ledger.transition("Revised", OWNER, IDENTITY.id, 1, replacement, "new term")
+        assert ledger.is_tombstoned(RULING.rendering, "access token")
+        ledger.transition(
+            "Superseded", OWNER, IDENTITY.id, 2, RULING, "return to original"
+        )
+        assert not ledger.is_tombstoned(RULING.rendering, "access token")
+        assert ledger.is_tombstoned(replacement.rendering, "access token")
+        assert (
+            ledger.reader().in_scope("access token", at=1)[IDENTITY.id].valid_until
+            is None
+        )
+
+
+def test_other_current_commitment_can_keep_rendering_allowed(tmp_path):
+    with Ledger(tmp_path / "overlap.sqlite", "toy") as ledger:
+        other = IDENTITY.model_copy(update={"id": "D2"})
+        ledger.ratify(OWNER, IDENTITY, 0, RULING, "initial")
+        ledger.ratify(OWNER, other, 0, RULING, "overlap")
+        replacement = RULING.model_copy(update={"rendering": "jeton"})
+        ledger.ratify(OWNER, IDENTITY, 1, replacement, "new term")
+        assert not ledger.is_tombstoned(RULING.rendering, "access token")
+        revoked = RULING.model_copy(update={"state": "revoked"})
+        ledger.transition("Revoked", OWNER, other.id, 1, revoked, "withdraw")
+        assert ledger.is_tombstoned(RULING.rendering, "access token")
+
+
+def test_failed_tombstone_insert_rolls_back_supersession(tmp_path, monkeypatch):
+    path = tmp_path / "rollback.sqlite"
+    with Ledger(path, "toy") as ledger:
+        ledger.ratify(OWNER, IDENTITY, 0, RULING, "initial")
+        append = ledger._append
+
+        def fail_on_tombstone(kind, *args, **kwargs):
+            if kind == "Tombstoned":
+                with sqlite3.connect(path) as observer:
+                    assert observer.execute(
+                        "SELECT type FROM events ORDER BY seq"
+                    ).fetchall() == [("Ratified",)]
+                raise RuntimeError("tombstone append failed")
+            return append(kind, *args, **kwargs)
+
+        monkeypatch.setattr(ledger, "_append", fail_on_tombstone)
+        replacement = RULING.model_copy(update={"rendering": "jeton"})
+        with pytest.raises(RuntimeError, match="tombstone append failed"):
+            ledger.transition(
+                "Superseded", OWNER, IDENTITY.id, 1, replacement, "replace"
+            )
+
+    with Ledger(path, "toy") as reopened:
+        assert reopened.snapshot().ledger_version == 1
+        assert reopened.snapshot().current[IDENTITY.id].rendering == RULING.rendering
+        assert reopened.verify() is None
