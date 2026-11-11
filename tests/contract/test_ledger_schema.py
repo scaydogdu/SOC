@@ -1,7 +1,8 @@
 import json
 
 import pytest
-from rdflib import Graph
+from rdflib import BNode, Graph, Literal
+from rdflib.namespace import OWL, RDF, RDFS, SH
 
 from soc.ledger.schema.validation import (
     ASSETS,
@@ -53,3 +54,52 @@ def test_strength_shape_requires_exactly_one_value(strengths):
     nodes[1]["strength"] = strengths
     with pytest.raises(ShapeError, match="^StrengthShape$"):
         validate_records(nodes)
+
+
+def test_ontology_declares_ledger_and_shape_vocabulary():
+    ontology = Graph().parse(ASSETS / "ontology.ttl", format="turtle")
+    shapes = Graph().parse(ASSETS / "shapes.ttl", format="turtle")
+    fixture_graph = Graph()
+    for fixture in FIXTURES.glob("valid-*.json"):
+        fixture_graph.parse(
+            data=json.dumps(
+                {"@context": context(), "@graph": json.loads(fixture.read_bytes())}
+            ),
+            format="json-ld",
+        )
+
+    classes = (
+        set(fixture_graph.objects(None, RDF.type))
+        | set(shapes.objects(None, SH.targetClass))
+        | set(shapes.objects(None, SH["class"]))
+    )
+    for term in classes:
+        if str(term).startswith(NAMESPACE):
+            assert (term, RDF.type, OWL.Class) in ontology, term
+
+    for _, predicate, value in fixture_graph:
+        if str(predicate).startswith(NAMESPACE):
+            declaration = (
+                OWL.DatatypeProperty
+                if isinstance(value, Literal)
+                else OWL.ObjectProperty
+            )
+            assert (predicate, RDF.type, declaration) in ontology, predicate
+
+    properties = set(shapes.objects(None, SH.equals)) | set(
+        shapes.objects(None, SH.lessThan)
+    )
+    for path in shapes.objects(None, SH.path):
+        properties.update(shapes.items(path) if isinstance(path, BNode) else [path])
+    for term in properties:
+        if str(term).startswith(NAMESPACE):
+            assert any(
+                (term, RDF.type, declaration) in ontology
+                for declaration in (OWL.DatatypeProperty, OWL.ObjectProperty)
+            ), term
+
+    for declaration in (OWL.Class, OWL.DatatypeProperty, OWL.ObjectProperty):
+        for term in ontology.subjects(RDF.type, declaration):
+            if str(term).startswith(NAMESPACE):
+                assert ontology.value(term, RDFS.label), term
+                assert ontology.value(term, RDFS.comment), term

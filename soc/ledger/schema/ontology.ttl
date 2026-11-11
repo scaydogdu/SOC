@@ -4,26 +4,225 @@
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
-soc: a owl:Ontology .
-soc:Commitment a owl:Class ; rdfs:subClassOf prov:Entity .
-soc:CommitmentVersion a owl:Class ; rdfs:subClassOf prov:Entity .
-soc:ExecutorEpoch a owl:Class ; rdfs:subClassOf prov:Entity .
-soc:RevisionEvent a owl:Class ; rdfs:subClassOf prov:Activity .
-soc:Ratification a owl:Class ; rdfs:subClassOf prov:Activity .
-soc:BriefChange a owl:Class ; rdfs:subClassOf prov:Activity .
-soc:LedgerEvent a owl:Class ; rdfs:subClassOf prov:Activity .
-soc:debtor a owl:ObjectProperty .
-soc:creditor a owl:ObjectProperty .
-soc:antecedent a owl:ObjectProperty .
-soc:consequent a owl:ObjectProperty .
-soc:owner a owl:ObjectProperty .
-soc:commitment a owl:ObjectProperty .
-soc:operation a owl:ObjectProperty .
-soc:checkableRule a owl:ObjectProperty .
-soc:sourceQuote a owl:ObjectProperty .
+soc: a owl:Ontology ;
+  rdfs:label "Semantic Operation Continuity commitment vocabulary" ;
+  rdfs:comment "Vocabulary for commitments, their versions, and ledger activities." .
+
+soc:Commitment a owl:Class ;
+  rdfs:subClassOf prov:Entity ;
+  rdfs:label "Commitment" ;
+  rdfs:comment "The stable identity of a ruling in an operation." .
+
+soc:CommitmentVersion a owl:Class ;
+  rdfs:subClassOf prov:Entity ;
+  rdfs:label "Commitment version" ;
+  rdfs:comment "An immutable version of a ruling, with its scope, supporting evidence, and validity interval." .
+
+soc:ExecutorEpoch a owl:Class ;
+  rdfs:subClassOf prov:Entity ;
+  rdfs:label "Executor epoch" ;
+  rdfs:comment "An interval during which a software agent executes the operation on behalf of a debtor." .
+
+soc:LedgerEvent a owl:Class ;
+  rdfs:subClassOf prov:Activity ;
+  rdfs:label "Ledger event" ;
+  rdfs:comment "An activity recorded at a sequence number in the ledger." .
+
+soc:RevisionEvent a owl:Class ;
+  rdfs:subClassOf soc:LedgerEvent ;
+  rdfs:label "Revision event" ;
+  rdfs:comment "An activity that replaces one commitment version with another." .
+
+soc:Ratification a owl:Class ;
+  rdfs:subClassOf soc:LedgerEvent ;
+  rdfs:label "Ratification" ;
+  rdfs:comment "An activity that makes a commitment version binding at a stated consistency level." .
+
+soc:BriefChange a owl:Class ;
+  rdfs:subClassOf soc:LedgerEvent ;
+  rdfs:label "Brief change" ;
+  rdfs:comment "A change to the operation's brief recorded by the principal." .
+
+soc:SourceQuote a owl:Class ;
+  rdfs:label "Source quote" ;
+  rdfs:comment "Verbatim source text together with the identifier of the sentence it came from." .
+
+soc:CheckableRule a owl:Class ;
+  rdfs:label "Checkable rule" ;
+  rdfs:comment "A typed rule represented by a kind and its parameters." .
+
+soc:debtor a owl:ObjectProperty ;
+  rdfs:domain soc:Commitment ;
+  rdfs:range prov:Agent ;
+  rdfs:label "debtor" ;
+  rdfs:comment "The agent that owes the commitment." .
+
+soc:creditor a owl:ObjectProperty ;
+  rdfs:domain soc:Commitment ;
+  rdfs:range prov:Agent ;
+  rdfs:label "creditor" ;
+  rdfs:comment "The agent to whom the commitment is owed." .
+
+soc:antecedent a owl:ObjectProperty ;
+  rdfs:label "antecedent" ;
+  rdfs:comment "In M0 revision events, links to the previous commitment version." .
+
+soc:consequent a owl:ObjectProperty ;
+  rdfs:label "consequent" ;
+  rdfs:comment "In M0 revision and ratification events, links to the resulting commitment version." .
+
+soc:owner a owl:ObjectProperty ;
+  rdfs:domain soc:Commitment ;
+  rdfs:range prov:Agent ;
+  rdfs:label "owner" ;
+  rdfs:comment "The agent authorized to revise the commitment." .
+
+soc:commitment a owl:ObjectProperty ;
+  rdfs:domain soc:CommitmentVersion ;
+  rdfs:range soc:Commitment ;
+  rdfs:label "commitment" ;
+  rdfs:comment "The stable commitment identity to which a version belongs." .
+
+soc:operation a owl:ObjectProperty ;
+  rdfs:domain soc:Commitment ;
+  rdfs:range rdfs:Resource ;
+  rdfs:label "operation" ;
+  rdfs:comment "The operation to which the commitment belongs." .
+
+soc:checkableRule a owl:ObjectProperty ;
+  rdfs:domain soc:CommitmentVersion ;
+  rdfs:range soc:CheckableRule ;
+  rdfs:label "checkable rule" ;
+  rdfs:comment "The rule associated with the ruling." .
+
+soc:sourceQuote a owl:ObjectProperty ;
+  rdfs:domain soc:CommitmentVersion ;
+  rdfs:range soc:SourceQuote ;
+  rdfs:label "source quote" ;
+  rdfs:comment "The verbatim source text associated with the ruling." .
+
+soc:actor a owl:ObjectProperty ;
+  rdfs:domain soc:LedgerEvent ;
+  rdfs:range prov:Agent ;
+  rdfs:label "actor" ;
+  rdfs:comment "The agent responsible for the recorded activity." .
+
+soc:proposer a owl:ObjectProperty ;
+  rdfs:domain soc:CommitmentVersion ;
+  rdfs:range prov:Agent ;
+  rdfs:label "proposer" ;
+  rdfs:comment "The agent that proposed the ruling." .
+
+soc:ratifier a owl:ObjectProperty ;
+  rdfs:domain [ a owl:Class ; owl:unionOf (soc:CommitmentVersion soc:Ratification) ] ;
+  rdfs:range prov:Agent ;
+  rdfs:label "ratifier" ;
+  rdfs:comment "The agent that ratified the ruling." .
+
+soc:executor a owl:ObjectProperty ;
+  rdfs:domain soc:ExecutorEpoch ;
+  rdfs:range prov:SoftwareAgent ;
+  rdfs:label "executor" ;
+  rdfs:comment "The software agent responsible for execution during the epoch." .
+
+soc:sequence a owl:DatatypeProperty ;
+  rdfs:domain soc:LedgerEvent ;
+  rdfs:range xsd:integer ;
+  rdfs:label "sequence" ;
+  rdfs:comment "The position of the event in the ledger." .
+
+soc:eventType a owl:DatatypeProperty ;
+  rdfs:domain soc:LedgerEvent ;
+  rdfs:range xsd:string ;
+  rdfs:label "event type" ;
+  rdfs:comment "The name of the event recorded in the ledger." .
+
+soc:role a owl:DatatypeProperty ;
+  rdfs:domain prov:Agent ;
+  rdfs:range xsd:string ;
+  rdfs:label "role" ;
+  rdfs:comment "The agent's role in the recorded activity." .
+
+soc:version a owl:DatatypeProperty ;
+  rdfs:domain soc:CommitmentVersion ;
+  rdfs:range xsd:integer ;
+  rdfs:label "version number" ;
+  rdfs:comment "The sequence number of the version within its commitment." .
+
+soc:scope a owl:DatatypeProperty ;
+  rdfs:domain soc:CommitmentVersion ;
+  rdfs:range xsd:string ;
+  rdfs:label "scope" ;
+  rdfs:comment "A scope key in which this version applies." .
+
+soc:rendering a owl:DatatypeProperty ;
+  rdfs:domain soc:CommitmentVersion ;
+  rdfs:range xsd:string ;
+  rdfs:label "rendering" ;
+  rdfs:comment "The wording or reading recorded in the ruling." .
+
+soc:rationale a owl:DatatypeProperty ;
+  rdfs:domain soc:CommitmentVersion ;
+  rdfs:range xsd:string ;
+  rdfs:label "rationale" ;
+  rdfs:comment "The explanation for the ruling." .
+
+soc:evidence a owl:DatatypeProperty ;
+  rdfs:domain [ a owl:Class ; owl:unionOf (soc:CommitmentVersion soc:Ratification) ] ;
+  rdfs:range xsd:string ;
+  rdfs:label "evidence" ;
+  rdfs:comment "A citation to a source sentence, brief clause, or commitment." .
+
+soc:consistency a owl:DatatypeProperty ;
+  rdfs:domain [ a owl:Class ; owl:unionOf (soc:CommitmentVersion soc:Ratification) ] ;
+  rdfs:range xsd:string ;
+  rdfs:label "consistency level" ;
+  rdfs:comment "The consistency level recorded for the ruling or its ratification." .
+
+soc:state a owl:DatatypeProperty ;
+  rdfs:domain soc:CommitmentVersion ;
+  rdfs:range xsd:string ;
+  rdfs:label "state" ;
+  rdfs:comment "The lifecycle state recorded in the version." .
 
 soc:strength a owl:DatatypeProperty ;
   rdfs:domain soc:CommitmentVersion ;
   rdfs:range xsd:string ;
   rdfs:label "strength" ;
   rdfs:comment "Normative strength of the ruling, expressed as must, should, or may." .
+
+soc:validFrom a owl:DatatypeProperty ;
+  rdfs:domain [ a owl:Class ; owl:unionOf (soc:CommitmentVersion soc:ExecutorEpoch) ] ;
+  rdfs:range xsd:integer ;
+  rdfs:label "valid from" ;
+  rdfs:comment "The inclusive starting sequence number of the validity interval." .
+
+soc:validUntil a owl:DatatypeProperty ;
+  rdfs:domain [ a owl:Class ; owl:unionOf (soc:CommitmentVersion soc:ExecutorEpoch) ] ;
+  rdfs:range xsd:integer ;
+  rdfs:label "valid until" ;
+  rdfs:comment "The exclusive ending sequence number of the validity interval when it is closed." .
+
+soc:sentenceId a owl:DatatypeProperty ;
+  rdfs:domain soc:SourceQuote ;
+  rdfs:range xsd:string ;
+  rdfs:label "sentence identifier" ;
+  rdfs:comment "The identifier of the source sentence containing the quote." .
+
+soc:text a owl:DatatypeProperty ;
+  rdfs:domain soc:SourceQuote ;
+  rdfs:range xsd:string ;
+  rdfs:label "text" ;
+  rdfs:comment "The quoted source text." .
+
+soc:kind a owl:DatatypeProperty ;
+  rdfs:domain soc:CheckableRule ;
+  rdfs:range xsd:string ;
+  rdfs:label "rule kind" ;
+  rdfs:comment "The identifier of the rule type." .
+
+soc:parameters a owl:DatatypeProperty ;
+  rdfs:domain soc:CheckableRule ;
+  rdfs:range xsd:string ;
+  rdfs:label "rule parameters" ;
+  rdfs:comment "The rule parameters serialized as JSON text." .
