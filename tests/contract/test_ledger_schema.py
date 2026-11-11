@@ -45,3 +45,11 @@ def test_ontology_matches_context_and_rebind_preserves_intervals():
         node["validFrom"] for node in nodes if node.get("@type") == "CommitmentVersion"
     ] == [1]
     assert all("validUntil" not in node for node in without_rebound)
+
+
+@pytest.mark.parametrize("strengths", [[], ["must", "may"]])
+def test_strength_shape_requires_exactly_one_value(strengths):
+    nodes = json.loads((FIXTURES / "valid-strength.json").read_bytes())
+    nodes[1]["strength"] = strengths
+    with pytest.raises(ShapeError, match="^StrengthShape$"):
+        validate_records(nodes)

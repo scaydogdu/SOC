@@ -34,6 +34,10 @@ soc:VersionVocabularyShape a sh:NodeShape ;
   sh:property [ sh:path soc:state ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("proposed" "provisional" "ratified" "contested" "amended" "superseded" "revoked") ] ;
   sh:property [ sh:path soc:consistency ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("ONE" "QUORUM" "ALL" "SERIAL") ] .
 
+soc:StrengthShape a sh:NodeShape ;
+  sh:targetClass soc:CommitmentVersion ;
+  sh:property [ sh:path soc:strength ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("must" "should" "may") ] .
+
 soc:ValidityIntervalShape a sh:NodeShape ;
   sh:targetClass soc:CommitmentVersion ;
   sh:property [ sh:path soc:validFrom ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:integer ; sh:minInclusive 1 ; sh:lessThan soc:validUntil ] ;

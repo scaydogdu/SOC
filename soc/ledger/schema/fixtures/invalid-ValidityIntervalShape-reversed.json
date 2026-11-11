@@ -34,6 +34,7 @@
       "kind": "term",
       "parameters": "{\"term\": \"access token\"}"
     },
-    "validUntil": 3
+    "validUntil": 3,
+    "strength": "must"
   }
 ]

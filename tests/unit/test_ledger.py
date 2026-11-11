@@ -1,8 +1,15 @@
 import sqlite3
 
 import pytest
+from pydantic import ValidationError
 
-from soc.ledger.models import BriefChanged, ChunkBuilt, ExecutorRebound, VersionRef
+from soc.ledger.models import (
+    BriefChanged,
+    ChunkBuilt,
+    ExecutorRebound,
+    Ruling,
+    VersionRef,
+)
 from soc.ledger.schema.validation import ShapeError
 from soc.ledger.store import AuthorityError, Ledger
 from tests.ledger_examples import IDENTITY, OTHER, OWNER, RULING
@@ -335,3 +342,40 @@ def test_failed_tombstone_insert_rolls_back_supersession(tmp_path, monkeypatch):
         assert reopened.snapshot().ledger_version == 1
         assert reopened.snapshot().current[IDENTITY.id].rendering == RULING.rendering
         assert reopened.verify() is None
+
+
+def test_strength_defaults_and_round_trips_as_version_data(tmp_path):
+    original = Ruling.model_validate(RULING.model_dump(exclude={"strength"}))
+    assert original.strength == "must"
+    with Ledger(tmp_path / "strength.sqlite", "toy") as ledger:
+        for base, strength in enumerate(("must", "should", "may")):
+            ruling = Ruling.model_validate(
+                dict(original.model_dump(), strength=strength)
+            )
+            event = ledger.ratify(OWNER, IDENTITY, base, ruling, "set strength")
+            assert event.payload["data"]["version"]["strength"] == strength
+            version_node = next(
+                node
+                for node in event.payload["@graph"]
+                if node.get("@type") == "CommitmentVersion"
+                and node["version"] == base + 1
+            )
+            assert version_node["strength"] == strength
+
+        replay = ledger.rebuild()
+        assert ledger.snapshot() == replay
+        assert [item.strength for item in replay.versions.values()] == [
+            "must",
+            "should",
+            "may",
+        ]
+        assert replay.current[IDENTITY.id].consistency == original.consistency
+        assert replay.current[IDENTITY.id].state == original.state
+        assert not replay.tombstones
+        assert ledger.verify() is None
+
+
+@pytest.mark.parametrize("invalid", ["MUST", "required", None])
+def test_ruling_rejects_invalid_strength(invalid):
+    with pytest.raises(ValidationError, match="strength"):
+        Ruling.model_validate(dict(RULING.model_dump(), strength=invalid))

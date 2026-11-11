@@ -51,6 +51,8 @@ Every accepted event advances the ledger sequence once. Only a commitment change
 
 Use `snapshot()` for the refreshed projection, `rebuild()` for independent replay from an empty projection, and `verify()` for the first broken sequence number or `None`. `reader().in_scope(scope, at=version)` reads current or historical commitments, with a non-decreasing version per handle. Historical reads show the validity interval as known at the requested version. `is_tombstoned(rendering, scope)` reports a past removal while no current ruling uses that rendering in that scope. These read operations do not write to SQLite.
 
+Every commitment version stores exactly one `soc:strength` value, `must` (required), `should` (advised), or `may` (optional). The typed input defaults to `must` when the field is omitted. Strength is independent of state and consistency. Historical records without the field read as `must` through the typed projection. M0 records strength for later use.
+
 The hand-written ontology, context, SHACL shapes, and fixtures are under `soc/ledger/schema`. Run the extended state machine and toy write benchmark after setup:
 
 ```sh

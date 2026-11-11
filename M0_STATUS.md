@@ -62,3 +62,42 @@ RFC 9700 acknowledgements now include the inline contact names in reading text. 
 The offline suite reported **65 passed in 31.72 seconds**, with **33.64 seconds** elapsed for the full check script. Branch coverage was **96.8%** for the ledger, **98.1%** for episodes, and **98.5%** for the segmenter. Ruff, strict mypy, and the import contract passed. The second review's design questions remain in [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md).
 
 The expanded Hypothesis run completed with **10,000 passing sequences and zero failures**. Seeds 801 through 810 each produced 1,000 passing sequences, with a longest run of 108.67 seconds. Reproduce each seed with the documented command and `SOC_LEDGER_EXAMPLES=1000`. The updated toy workload measured **4.100 ms median** and **9.810 ms p95** for validation per write over 130 writes.
+
+## 11 November acceptance checks and strength
+
+Findings A1–A5 were implemented in `3ea735e`. This follow-up adds Hypothesis invariants after each state-machine step. A persistent reader checks the current scope results and the model checks every rendering and scope against the tombstone lookup. The test still compares every historical version with prefix replay and checks that a reader rejects a backwards read.
+
+Strength is a lowercase string on the typed ruling and commitment version. The typed default is `must` when omitted. The existing JSON-LD context expands the property to `soc:strength`. The ontology declares the property with domain `soc:CommitmentVersion` and range `xsd:string`. `StrengthShape` requires exactly one of `must`, `should`, and `may`. Stored values are independent of state and consistency. Reopening a pre-strength ledger resolves the missing field to `must` in the typed projection and retains its original event and hash chain.
+
+| Focused test | Result |
+| --- | --- |
+| Scope narrowing with the same rendering | PASSED. Only the lost scope was tombstoned |
+| Revision and re-adoption | PASSED. The old rendering was tombstoned after revision and allowed again after re-adoption |
+| Overlapping current commitments | PASSED. A second current ruling kept the shared rendering allowed |
+| Supersession and tombstone atomicity | PASSED. An injected failure rolled back both writes, and a second connection saw only the earlier ratification |
+| RFC 9700 section round trip | PASSED |
+| RFC 9700 acknowledgements | PASSED. Contact names and the full sentence were present in the reading text |
+| Strength default, JSON and JSON-LD persistence, replay | PASSED. All three values round-tripped with unchanged state and consistency |
+| Typed validation | PASSED for rejection of `MUST`, `required`, and explicit null |
+| SHACL fixtures and cardinality | PASSED for the three valid values and for rejection of an unknown value, zero values, and two values |
+
+The focused run reported `14 passed, 29 deselected in 0.69s`. The complete ledger unit, RFC unit, and ledger schema run reported `43 passed in 1.16s`. The offline suite reported `73 passed in 31.41s`, with 33.17 seconds elapsed for `./scripts/check`. Ruff, strict mypy, and the import contract passed. Branch coverage was 96.8% for the ledger, 98.1% for episodes, and 98.5% for the segmenter. A compatibility check used a SQLite ledger created by `3ea735e`, reopened it with a typed `must`, appended a version with `may`, and verified the original event and the hash chain.
+
+Deferred by scope are the Section B design decisions, strength-based gate behavior, the operational profile, and M1 or later work.
+
+The final Hypothesis run passed **10,000 sequences with zero failures**. Each run stopped at `settings.max_examples=1000`. Reproduce using the seeded command in the README with `SOC_LEDGER_EXAMPLES=1000` and seeds 901–910.
+
+| Seed | Passing | Failing | Discarded | Runtime |
+| --- | ---: | ---: | ---: | ---: |
+| 901 | 1,000 | 0 | 128 | 104.11 s |
+| 902 | 1,000 | 0 | 133 | 98.88 s |
+| 903 | 1,000 | 0 | 144 | 102.71 s |
+| 904 | 1,000 | 0 | 149 | 101.49 s |
+| 905 | 1,000 | 0 | 149 | 102.46 s |
+| 906 | 1,000 | 0 | 119 | 92.58 s |
+| 907 | 1,000 | 0 | 131 | 99.83 s |
+| 908 | 1,000 | 0 | 122 | 94.46 s |
+| 909 | 1,000 | 0 | 154 | 97.55 s |
+| 910 | 1,000 | 0 | 141 | 101.80 s |
+
+The toy benchmark measured 130 writes after one warm-up. SHACL including JSON-LD parsing took **3.910 ms median** and **9.681 ms p95** per write.

@@ -29,6 +29,7 @@
     "sourceQuote": {
       "sentenceId": "9999-1-s01",
       "text": "access token"
-    }
+    },
+    "strength": "must"
   }
 ]

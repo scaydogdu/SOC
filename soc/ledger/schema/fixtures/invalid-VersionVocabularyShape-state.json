@@ -33,6 +33,7 @@
     "checkableRule": {
       "kind": "term",
       "parameters": "{\"term\": \"access token\"}"
-    }
+    },
+    "strength": "must"
   }
 ]

@@ -51,7 +51,8 @@
     "checkableRule": {
       "kind": "term",
       "parameters": "{\"term\": \"access token\"}"
-    }
+    },
+    "strength": "must"
   },
   {
     "@id": "urn:soc:commitment:D1",
@@ -88,6 +89,7 @@
       "kind": "term",
       "parameters": "{\"term\": \"access token\"}"
     },
-    "wasRevisionOf": "urn:soc:version:D1/1"
+    "wasRevisionOf": "urn:soc:version:D1/1",
+    "strength": "must"
   }
 ]

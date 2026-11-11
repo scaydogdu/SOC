@@ -33,7 +33,8 @@
     "checkableRule": {
       "kind": "term",
       "parameters": "{\"term\": \"access token\"}"
-    }
+    },
+    "strength": "must"
   },
   {
     "@id": "urn:soc:event:rebind",

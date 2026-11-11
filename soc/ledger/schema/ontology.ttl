@@ -1,6 +1,7 @@
 @prefix soc: <https://w3id.org/soc-testbed#> .
 @prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
 soc: a owl:Ontology .
@@ -20,3 +21,9 @@ soc:commitment a owl:ObjectProperty .
 soc:operation a owl:ObjectProperty .
 soc:checkableRule a owl:ObjectProperty .
 soc:sourceQuote a owl:ObjectProperty .
+
+soc:strength a owl:DatatypeProperty ;
+  rdfs:domain soc:CommitmentVersion ;
+  rdfs:range xsd:string ;
+  rdfs:label "strength" ;
+  rdfs:comment "Normative strength of the ruling, expressed as must, should, or may." .

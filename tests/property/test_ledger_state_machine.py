@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 import pytest
 from hypothesis import settings
 from hypothesis import strategies as st
-from hypothesis.stateful import RuleBasedStateMachine, precondition, rule
+from hypothesis.stateful import RuleBasedStateMachine, invariant, precondition, rule
 
 from soc.ledger.models import BriefChanged, ChunkBuilt, VersionRef
 from soc.ledger.store import AuthorityError, Ledger, Projection
@@ -29,6 +29,7 @@ class LedgerMachine(RuleBasedStateMachine):
         path = Path(self.directory.name) / "state.sqlite"
         self.ledger = Ledger(path, "state")
         self.peer = Ledger(path, "state")
+        self.reader = self.ledger.reader()
         self.current = {}
         self.history = {}
         self.tombstones = []
@@ -143,6 +144,29 @@ class LedgerMachine(RuleBasedStateMachine):
         self.ledger.record(OWNER, chunk, chunk_id=chunk_id)
         self.chunks[chunk_id] = chunk
 
+    @invariant()
+    def current_lookups_match_model(self):
+        for scope in SCOPES:
+            entries = self.reader.in_scope(scope, at=self.seq)
+            assert {
+                key: (item.version, item.rendering, set(item.scope), item.state)
+                for key, item in entries.items()
+            } == {
+                key: entry
+                for key, entry in self.current.items()
+                if scope in entry[2] and entry[3] != "revoked"
+            }
+        for rendering, scope in product(RENDERINGS, SCOPES):
+            current = any(
+                value == rendering and scope in scopes and state != "revoked"
+                for _, value, scopes, state in self.current.values()
+            )
+            lost = any(
+                value == rendering and scope in scopes
+                for _, _, _, value, scopes in self.tombstones
+            )
+            assert self.ledger.is_tombstoned(rendering, scope) == (lost and not current)
+
     def check_projections_and_lookups(self):
         view = self.ledger.snapshot()
         assert view == self.ledger.rebuild()
@@ -166,17 +190,6 @@ class LedgerMachine(RuleBasedStateMachine):
             )
         ]
         assert actual_tombstones == self.tombstones
-
-        for rendering, scope in product(RENDERINGS, SCOPES):
-            current = any(
-                value == rendering and scope in scopes and state != "revoked"
-                for _, value, scopes, state in self.current.values()
-            )
-            lost = any(
-                value == rendering and scope in scopes
-                for _, _, _, value, scopes in self.tombstones
-            )
-            assert self.ledger.is_tombstoned(rendering, scope) == (lost and not current)
 
         reader = self.ledger.reader()
         prefix = Projection()

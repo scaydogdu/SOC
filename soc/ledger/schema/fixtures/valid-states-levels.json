@@ -34,7 +34,8 @@
     "checkableRule": {
       "kind": "term",
       "parameters": "{\"term\": \"access token\"}"
-    }
+    },
+    "strength": "must"
   },
   {
     "@id": "urn:soc:commitment:D1",
@@ -71,7 +72,8 @@
     "checkableRule": {
       "kind": "term",
       "parameters": "{\"term\": \"access token\"}"
-    }
+    },
+    "strength": "must"
   },
   {
     "@id": "urn:soc:commitment:D1",
@@ -108,7 +110,8 @@
     "checkableRule": {
       "kind": "term",
       "parameters": "{\"term\": \"access token\"}"
-    }
+    },
+    "strength": "must"
   },
   {
     "@id": "urn:soc:commitment:D1",
@@ -145,7 +148,8 @@
     "checkableRule": {
       "kind": "term",
       "parameters": "{\"term\": \"access token\"}"
-    }
+    },
+    "strength": "must"
   },
   {
     "@id": "urn:soc:commitment:D1",
@@ -182,7 +186,8 @@
     "checkableRule": {
       "kind": "term",
       "parameters": "{\"term\": \"access token\"}"
-    }
+    },
+    "strength": "must"
   },
   {
     "@id": "urn:soc:commitment:D1",
@@ -219,7 +224,8 @@
     "checkableRule": {
       "kind": "term",
       "parameters": "{\"term\": \"access token\"}"
-    }
+    },
+    "strength": "must"
   },
   {
     "@id": "urn:soc:commitment:D1",
@@ -256,6 +262,7 @@
     "checkableRule": {
       "kind": "term",
       "parameters": "{\"term\": \"access token\"}"
-    }
+    },
+    "strength": "must"
   }
 ]

@@ -77,6 +77,7 @@ def version_nodes(
         "ratifier": _agent(version.ratifier),
         "consistency": version.consistency,
         "state": version.state,
+        "strength": version.strength,
         "validFrom": version.valid_from,
     }
     if version.valid_until is not None:

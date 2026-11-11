@@ -17,6 +17,7 @@ State = Literal[
     "revoked",
 ]
 Consistency = Literal["ONE", "QUORUM", "ALL", "SERIAL"]
+Strength = Literal["must", "should", "may"]
 EventType = Literal[
     "Ratified",
     "ConflictRaised",
@@ -82,6 +83,7 @@ class Ruling(Record):
     ratifier: Text
     consistency: Consistency
     state: State
+    strength: Strength = "must"
 
 
 class CommitmentVersion(Ruling):
