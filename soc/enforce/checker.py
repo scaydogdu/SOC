@@ -125,6 +125,9 @@ class Checker:
             lemmatizer if lemmatizer is not None else TurkishStemLemmatizer()
         )
 
+    def find_rendering(self, phrase: str, text: str) -> tuple[Span, ...]:
+        return self.lemmatizer.find(phrase, text)
+
     def check(
         self,
         source: Sequence[Sentence],
@@ -203,7 +206,7 @@ class Checker:
                 BCP14.fullmatch(key) for key in applicable
             ):
                 continue
-            if not self.lemmatizer.find(decision.value, text):
+            if not self.find_rendering(decision.value, text):
                 findings.append(
                     Finding(
                         "term",
@@ -225,6 +228,6 @@ class Checker:
                         decision_id=rule.decision_id,
                         strength=rule.strength,
                     )
-                    for span in self.lemmatizer.find(rule.rendering, text)
+                    for span in self.find_rendering(rule.rendering, text)
                 )
         return findings

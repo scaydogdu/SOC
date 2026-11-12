@@ -9,6 +9,7 @@ groups = {
     "segmenter": ("soc/tasks/",),
     "providers": ("soc/providers/",),
     "checker": ("soc/enforce/",),
+    "baseline": ("soc/baseline/",),
 }
 files = json.load(sys.stdin)["files"]
 failed = False

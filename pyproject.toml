@@ -11,6 +11,12 @@ dependencies = [
     "rdflib>=7,<8",
 ]
 
+[project.optional-dependencies]
+embeddings = [
+    "huggingface-hub>=2.4,<3",
+    "sentence-transformers>=5,<6",
+]
+
 [dependency-groups]
 dev = [
     "hypothesis",
@@ -33,7 +39,8 @@ files = ["soc", "eval"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "--disable-socket --allow-unix-socket"
+addopts = "--disable-socket --allow-unix-socket -m 'not nightly'"
+markers = ["nightly: optional integration checks requiring provisioned external assets"]
 filterwarnings = [
     "ignore:ConjunctiveGraph is deprecated, use Dataset instead:DeprecationWarning:rdflib.plugins.parsers.jsonld",
 ]
@@ -43,7 +50,7 @@ branch = true
 source = ["."]
 
 [tool.coverage.report]
-include = ["soc/ledger/*", "soc/episode.py", "soc/tasks/*", "soc/providers/*", "soc/enforce/*", "eval/episode.py"]
+include = ["soc/ledger/*", "soc/episode.py", "soc/tasks/*", "soc/providers/*", "soc/enforce/*", "soc/baseline/*", "eval/episode.py"]
 
 [tool.importlinter]
 root_packages = ["soc", "eval", "analysis"]

@@ -73,3 +73,16 @@ SOC_LEDGER_RANDOM=1 SOC_LEDGER_EXAMPLES=2500 uv run --locked --offline pytest -q
 `soc.enforce.checker.Checker` accepts source sentences, an aligned `ChunkOutput`, the active brief, and applicable decisions and forbidden renderings. It checks sentence IDs, verbatim segments, capitalized BCP 14 wording, numbers, approved terms, and forbidden wording. Findings include the rule, sentence ID, available decision or brief references, strength, and output character offsets when there is text to point to.
 
 Pass approved Turkish modal wording as `NormativeRendering` entries tied to active brief clauses. Missing or conflicting wording produces `unknown`. The checker covers negation through BCP 14 polarity. General negation and semantic checks belong to the M3 meaning checker. The M1 Turkish stem matcher handles common inflections and consonant softening. Pilot A evaluates replacements behind the `Lemmatizer` interface.
+
+## RAG baseline
+
+`soc.baseline.memory.RAGMemory` implements the shared memory interface. Each prompt receives the current glossary and style guide, plus the top retrieved notes with rationale. `RetrievalConfig` defaults to five notes and equal weights for normalized BM25 and dense cosine similarity. A revision replaces the indexed note, keeps its history, and searches saved output for the previous wording with the checker's inflection matcher. Executor handover includes the current notes and partial translation.
+
+The offline suite uses a deterministic hash embedder. To provision the pinned BGE-M3 checkpoint and run its separate smoke test, use the optional `embeddings` dependencies.
+
+```sh
+uv run --locked --extra embeddings python -c 'from soc.baseline.retrieval import BGEM3Embedder; BGEM3Embedder(local_files_only=False)'
+uv run --locked --offline --extra embeddings pytest -q -m nightly tests/unit/test_rag_memory.py
+```
+
+The normal adapter loads the checkpoint from the local model cache. [Pinned BGE-M3 model](https://huggingface.co/BAAI/bge-m3/tree/5617a9f61b028005a4858fdac845db406aefb181)
