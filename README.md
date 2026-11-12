@@ -67,3 +67,9 @@ The extended run can also be split into independent, seeded runs of 2,500 exampl
 ```sh
 SOC_LEDGER_RANDOM=1 SOC_LEDGER_EXAMPLES=2500 uv run --locked --offline pytest -q --hypothesis-seed=401 --hypothesis-show-statistics tests/property/test_ledger_state_machine.py
 ```
+
+## Shared translation checker
+
+`soc.enforce.checker.Checker` accepts source sentences, an aligned `ChunkOutput`, the active brief, and applicable decisions and forbidden renderings. It checks sentence IDs, verbatim segments, capitalized BCP 14 wording, numbers, approved terms, and forbidden wording. Findings include the rule, sentence ID, available decision or brief references, strength, and output character offsets when there is text to point to.
+
+Pass approved Turkish modal wording as `NormativeRendering` entries tied to active brief clauses. Missing or conflicting wording produces `unknown`. The checker covers negation through BCP 14 polarity. General negation and semantic checks belong to the M3 meaning checker. The M1 Turkish stem matcher handles common inflections and consonant softening. Pilot A evaluates replacements behind the `Lemmatizer` interface.

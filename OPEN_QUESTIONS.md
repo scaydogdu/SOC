@@ -7,5 +7,6 @@
 - Confirm whether `Revised` and `Superseded` should differ beyond the event type and allowed replacement states.
 - Decide whether to keep Inspect AI's model layer after reviewing the [M1 trial](M1_STATUS.md). Thin clients are the working path.
 - Decide whether an episode revision should be able to narrow or widen a decision's scope keys. M1 treats a scope-limited revision as a value change within the existing scope, as specified in the M1 brief.
+- Approve the toy episode's Turkish renderings for BCP 14 keywords. The public brief describes preserving normative force, and D4 records an interpretation. The checker needs the actual approved modal wording tied to a brief clause and reports `unknown` when it is missing.
 
 The five M2 design decisions approved on 11 November 2026 are recorded in [Section B of the second M0 review](REVIEW_M0_2.md#b-design-questions--decided-by-can-on-11-november-2026).

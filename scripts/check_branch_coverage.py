@@ -8,6 +8,7 @@ groups = {
     "episode": ("soc/episode.py", "eval/episode.py"),
     "segmenter": ("soc/tasks/",),
     "providers": ("soc/providers/",),
+    "checker": ("soc/enforce/",),
 }
 files = json.load(sys.stdin)["files"]
 failed = False
