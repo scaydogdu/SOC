@@ -1,0 +1,13 @@
+run:
+  run_id: toy-offline
+  condition: rag
+  episode_id: toy
+  initial_model: fake-first
+  successor_model: fake-successor
+  effort: low
+experiment:
+  max_repair_rounds: 2
+  normative:
+    - {keyword: MUST, value: zorunludur, brief_clause_id: B1}
+limits:
+  token_cap: 1000

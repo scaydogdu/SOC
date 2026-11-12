@@ -80,11 +80,13 @@ class ScriptMismatch(AssertionError):
 
 
 class ScriptedProvider:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, consumed_attempts: int = 0) -> None:
         self._script = _Script.model_validate(
             yaml.safe_load(path.read_text(encoding="utf-8"))
         )
-        self._next = 0
+        if not 0 <= consumed_attempts <= len(self._script.steps):
+            raise ValueError("recorded attempts lie outside the supplied script")
+        self._next = consumed_attempts
 
     async def generate(self, request: ProviderRequest) -> Reply:
         if self._next >= len(self._script.steps):

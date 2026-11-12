@@ -1,0 +1,57 @@
+steps:
+  - match: {model: fake-first, contains: 9999-1-s01}
+    input_tokens: 10
+    output_tokens: 5
+    response:
+      sentences:
+        - {sentence_id: 9999-1-s01, text: "Erişim jetonu istemciye kaynağı kullanma olanağı verir."}
+        - {sentence_id: 9999-1-s02, text: "Yenileme belirteci erişimi yenileyebilir."}
+  - match: {model: fake-first, contains: 9999-1-s03}
+    input_tokens: 10
+    output_tokens: 5
+    response:
+      sentences:
+        - {sentence_id: 9999-1-s03, text: "İstemcinin erişim anahtarı ve yenileme belirteci kullanması zorunludur."}
+        - {sentence_id: 9999-1-s04, text: "Yalnızca genel istemciler için istisna geçerlidir."}
+  - match: {model: fake-first, contains: "Missing approved rendering"}
+    input_tokens: 10
+    output_tokens: 5
+    response:
+      sentences:
+        - {sentence_id: 9999-1-s03, text: "İstemcinin erişim jetonu ve yenileme belirteci kullanması zorunludur."}
+        - {sentence_id: 9999-1-s04, text: "Yalnızca genel istemciler için istisna geçerlidir."}
+  - match: {model: fake-successor, contains: Executor handover}
+    input_tokens: 10
+    output_tokens: 5
+    response:
+      sentences:
+        - {sentence_id: 9999-2-s01, text: "İstemcinin erişim jetonu ve yenileme belirteci kullanması zorunludur."}
+        - {sentence_id: 9999-2-s02, text: "Yalnızca genel istemciler için istisnayı uygulayın."}
+  - match: {model: fake-successor, contains: Applicable revision notes}
+    input_tokens: 10
+    output_tokens: 5
+    response:
+      sentences:
+        - {sentence_id: 9999-1-s01, text: "Erişim belirteci istemciye kaynağı kullanma olanağı verir."}
+        - {sentence_id: 9999-1-s02, text: "Yenileme belirteci erişimi yenileyebilir."}
+  - match: {model: fake-successor, contains: Applicable revision notes}
+    input_tokens: 10
+    output_tokens: 5
+    response:
+      sentences:
+        - {sentence_id: 9999-1-s03, text: "İstemcinin erişim belirteci ve yenileme belirteci kullanması zorunludur."}
+        - {sentence_id: 9999-1-s04, text: "Yalnızca yerel genel istemciler için istisna geçerlidir."}
+  - match: {model: fake-successor, contains: Applicable revision notes}
+    input_tokens: 10
+    output_tokens: 5
+    response:
+      sentences:
+        - {sentence_id: 9999-2-s01, text: "İstemcinin erişim belirteci ve yenileme belirteci kullanması zorunludur."}
+        - {sentence_id: 9999-2-s02, text: "Yalnızca yerel genel istemciler için istisnayı uygulayın."}
+  - match: {model: fake-successor, contains: 9999-2-s03}
+    input_tokens: 10
+    output_tokens: 5
+    response:
+      sentences:
+        - {sentence_id: 9999-2-s03, text: "İstemcinin erişim belirteci ve yenileme belirteci kullanması zorunludur."}
+        - {sentence_id: 9999-2-s04, text: "Yalnızca yerel genel istemciler için istisna geçerlidir."}

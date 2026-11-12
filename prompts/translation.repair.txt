@@ -1,0 +1,11 @@
+Repair the previous output against the current instructions.
+Keep correct sentences and return the complete chunk.
+
+Previous output
+$previous
+
+Checker findings
+$findings
+
+Applicable revision notes
+$revisions

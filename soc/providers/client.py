@@ -32,6 +32,24 @@ class CacheMiss(LookupError):
     outcome = Outcome.CACHE_MISS
 
 
+def configured_credentials() -> tuple[str, ...]:
+    return tuple(
+        value
+        for name in (
+            "ANTHROPIC_API_KEY",
+            "OPENAI_API_KEY",
+            "GEMINI_API_KEY",
+            "GOOGLE_API_KEY",
+        )
+        if (value := os.environ.get(name))
+    )
+
+
+def ensure_no_credentials(secrets: tuple[str, ...], *texts: str) -> None:
+    if any(secret in text for secret in secrets for text in texts):
+        raise ValueError("data contains a provider credential")
+
+
 class Price(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", allow_inf_nan=False)
 
@@ -113,10 +131,13 @@ class ModelClient:
         if any(route.family not in self._throttles for route in self._routes.values()):
             raise ValueError("every provider route requires a configured limit")
         self.tokens = initial_tokens
-        self._log_path = run_dir / "calls.jsonl.gz"
+        self.run_dir = run_dir.resolve()
+        self._log_path = self.run_dir / "calls.jsonl.gz"
         run_dir.mkdir(parents=True, exist_ok=True)
 
-    async def generate(self, request: Request[Output]) -> Response[Output]:
+    async def generate(
+        self, request: Request[Output], *, recover: bool = False
+    ) -> Response[Output]:
         if request.run_id != self.run_id:
             raise ValueError("request belongs to a different run")
         if request.replicate < 0:
@@ -130,27 +151,22 @@ class ModelClient:
             output_schema=request.schema.model_json_schema(),
             sampling=request.sampling,
         )
-        secrets = tuple(
-            value
-            for name in (
-                "ANTHROPIC_API_KEY",
-                "OPENAI_API_KEY",
-                "GEMINI_API_KEY",
-                "GOOGLE_API_KEY",
-            )
-            if (value := os.environ.get(name))
+        secrets = configured_credentials()
+        ensure_no_credentials(
+            secrets, parameters.model_dump_json(), request.run_id, request.call_id
         )
-        inputs = (parameters.model_dump_json(), request.run_id, request.call_id)
-        if any(secret in item for secret in secrets for item in inputs):
-            raise ValueError("request contains a provider credential")
 
         key = cache_key(parameters, request.replicate)
         price = self.prices[request.model]
         source: Literal["client", "cache", "provider"] = "client"
         cached = None
-        if self.mode is not Mode.LIVE:
+        if self.mode is not Mode.LIVE or recover:
             cached = self.cache.read_call(request.run_id, request.call_id, key)
-            if cached is None and self.tokens < self.limits.token_cap:
+            if (
+                cached is None
+                and self.mode is not Mode.LIVE
+                and self.tokens < self.limits.token_cap
+            ):
                 cached = self.cache.read(key)
         if cached is not None:
             reply = cached
@@ -174,8 +190,22 @@ class ModelClient:
             if reply.outcome is Outcome.OK
             else None
         )
-        self._log(request, key, price, reply, source, attempt=None)
+        if not (
+            recover and cached is not None and self._has_summary(request.call_id, key)
+        ):
+            self._log(request, key, price, reply, source, attempt=None)
         return Response(reply, parsed, price.estimate(reply))
+
+    def _has_summary(self, call_id: str, key: str) -> bool:
+        if not self._log_path.exists():
+            return False
+        with gzip.open(self._log_path, "rt", encoding="utf-8") as log:
+            return any(
+                row["call_id"] == call_id
+                and row["cache_key"] == key
+                and row["attempt"] is None
+                for row in map(json.loads, log)
+            )
 
     async def _live(
         self,
@@ -285,8 +315,13 @@ class ModelClient:
             "latency_seconds": reply.latency_seconds,
             "estimated_cost_usd": price.estimate(reply),
         }
-        with gzip.open(self._log_path, "at", encoding="utf-8") as log:
-            log.write(json.dumps(line, separators=(",", ":")) + "\n")
+        member = gzip.compress(
+            (json.dumps(line, separators=(",", ":")) + "\n").encode()
+        )
+        previous = self._log_path.read_bytes() if self._log_path.exists() else b""
+        temporary = self._log_path.with_suffix(".tmp")
+        temporary.write_bytes(previous + member)
+        temporary.replace(self._log_path)
 
 
 def _validate_reply(

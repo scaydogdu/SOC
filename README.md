@@ -86,3 +86,20 @@ uv run --locked --offline --extra embeddings pytest -q -m nightly tests/unit/tes
 ```
 
 The normal adapter loads the checkpoint from the local model cache. [Pinned BGE-M3 model](https://huggingface.co/BAAI/bge-m3/tree/5617a9f61b028005a4858fdac845db406aefb181)
+
+## Offline episode runner
+
+Record the scripted toy episode and replay it from its cache.
+
+```sh
+soc_run_root=$(mktemp -d)
+uv run --locked --offline python -m soc.orchestrator data/episodes/toy "$soc_run_root/recorded" \
+  --config tests/fixtures/toy-run-config.yaml --cache "$soc_run_root/cache.sqlite" \
+  --script tests/fixtures/toy-run.yaml
+uv run --locked --offline python -m soc.orchestrator data/episodes/toy "$soc_run_root/replay" \
+  --config tests/fixtures/toy-run-config.yaml --cache "$soc_run_root/cache.sqlite"
+```
+
+Use the same run directory and configuration to resume. The runner restores completed worker steps from `journal.sqlite` and recovers a pending step from its exact cached response when present. It can repeat an interrupted request if the response had yet to reach the cache.
+
+`run.json` records the run identity, configuration, prompt hashes, status, token counts, and estimated cost. The directory also contains compressed call logs, delivered decision versions, scheduled events, per-attempt checker findings, final chunks, and a final check against the active brief. The single experiment-level repair limit covers both draft and post-revision repairs. The toy CLI uses scripted responses, a hash embedder, and test-only modal wording.

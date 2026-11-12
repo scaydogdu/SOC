@@ -1,0 +1,10 @@
+[
+  {
+    "role": "system",
+    "content": "Translate English protocol specifications into Turkish for implementers.\nFollow the current brief, glossary, style guidance, and scoped decisions.\nReturn one translation for each source sentence ID in source order.\nPreserve non-translatable text exactly, including spaces and line endings.\nPreserve numbers and normative force. Return the requested structured output.\n"
+  },
+  {
+    "role": "user",
+    "content": "Current memory\nGlossary\nD1 v2: erişim belirteci\n\nExecutor handover\nContinue the partial translation.\n\nSource sentences\n[{\"sentence_id\":\"9700-1-s01\",\"text\":\"Protect the access token.\",\"translatable\":true},{\"sentence_id\":\"9700-1-s02\",\"text\":\"  GET /token\\n\",\"translatable\":false}]\nRepair the previous output against the current instructions.\nKeep correct sentences and return the complete chunk.\n\nPrevious output\n{\"sentences\":[{\"sentence_id\":\"9700-1-s01\",\"text\":\"Erişim jetonunu koruyun.\"},{\"sentence_id\":\"9700-1-s02\",\"text\":\"  GET /token\\n\"}]}\n\nChecker findings\n[{\"rule\":\"term\",\"sentence_id\":\"9700-1-s01\",\"detail\":\"Use the approved rendering.\",\"span\":null,\"decision_id\":\"D1\",\"brief_clause_ids\":[],\"strength\":\"must\",\"status\":\"violation\"}]\n\nApplicable revision notes\n[{\"decision_id\":\"D1\",\"previous\":\"erişim jetonu\",\"current\":\"erişim belirteci\",\"scope_keys\":[\"access token\"]}]\n\n"
+  }
+]
