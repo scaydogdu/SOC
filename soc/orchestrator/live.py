@@ -179,7 +179,7 @@ def available_families() -> frozenset[str]:
     )
 
 
-def _guard(config: LiveConfig, root: Path) -> SpendGuard:
+def campaign_spend(config: LiveConfig, root: Path) -> SpendGuard:
     return SpendGuard(
         root / "spend.sqlite",
         config.spend_cap_usd,
@@ -187,7 +187,7 @@ def _guard(config: LiveConfig, root: Path) -> SpendGuard:
     )
 
 
-def _client(
+def campaign_client(
     config: LiveConfig,
     root: Path,
     run_dir: Path,
@@ -196,6 +196,8 @@ def _client(
     routes: Mapping[str, Route] | None,
     guard: SpendGuard | None = None,
 ) -> ModelClient:
+    if routes is not None and guard is None:
+        raise ValueError("live campaign routes require a shared spend guard")
     return ModelClient(
         run_id=run_id,
         mode=Mode.LIVE if routes is not None else Mode.REPLAY,
@@ -267,9 +269,11 @@ async def probe_roster(
 async def _probe_roster(
     config: LiveConfig, root: Path, routes: Mapping[str, Route]
 ) -> ProbeReport:
-    guard = _guard(config, root)
+    guard = campaign_spend(config, root)
     run_id = f"m1-probe-{config.probe_fingerprint()[:16]}"
-    client = _client(config, root, root / "probes", run_id, routes=routes, guard=guard)
+    client = campaign_client(
+        config, root, root / "probes", run_id, routes=routes, guard=guard
+    )
     results: list[ProbeRow] = []
     efforts: tuple[Effort, ...] = ("low", "high")
     for model, entry in config.models.items():
@@ -351,24 +355,29 @@ async def _probe_roster(
     return report
 
 
-def _assert_probed(config: LiveConfig, root: Path, routes: Mapping[str, Route]) -> None:
-    selected = {config.toy.initial_model, config.toy.successor_model}
+def require_probes(
+    config: LiveConfig,
+    root: Path,
+    routes: Mapping[str, Route],
+    selected: set[str],
+    effort: Effort,
+) -> None:
     if selected - routes.keys():
-        raise ValueError("live toy requires credentials for both selected models")
+        raise ValueError("live campaign requires credentials for the selected models")
     path = root / "probe-report.json"
     if not path.is_file():
-        raise ValueError("run the roster probe before the live toy")
+        raise ValueError("run the roster probe before the live check")
     report = ProbeReport.model_validate_json(path.read_bytes())
     if report.configuration != config.probe_fingerprint():
         raise ValueError("roster probe used a different campaign configuration")
     passed = {
         row.model
         for row in report.results
-        if row.effort == config.toy.effort and row.status == "passed"
+        if row.effort == effort and row.status == "passed"
     }
     failed = {row.model for row in report.results if row.status == "failed"}
     if selected - passed or selected & failed:
-        raise ValueError("a selected toy model has not passed its effort probe")
+        raise ValueError("a selected model has not passed its effort probe")
 
 
 async def run_live_toy(
@@ -392,8 +401,14 @@ async def run_live_toy(
     recorded = root / "toy"
     guard = None
     if routes is not None:
-        _assert_probed(config, root, routes)
-        guard = _guard(config, root)
+        require_probes(
+            config,
+            root,
+            routes,
+            {config.toy.initial_model, config.toy.successor_model},
+            config.toy.effort,
+        )
+        guard = campaign_spend(config, root)
         checker = Checker()
         result = await run_episode(
             episode,
@@ -402,7 +417,7 @@ async def run_live_toy(
             experiment=config.experiment,
             memory=RAGMemory(embedder, checker),
             checker=checker,
-            client=_client(
+            client=campaign_client(
                 config, root, recorded, spec.run_id, routes=routes, guard=guard
             ),
         )
@@ -418,12 +433,26 @@ async def run_live_toy(
         experiment=config.experiment,
         memory=RAGMemory(embedder, checker),
         checker=checker,
-        client=_client(config, root, replay, spec.run_id, routes=None),
+        client=campaign_client(config, root, replay, spec.run_id, routes=None),
     )
     for name in _PROJECTIONS:
         if (recorded / name).read_bytes() != (replay / name).read_bytes():
             raise RuntimeError(f"live toy replay differed in {name}")
     return True
+
+
+def live_routes(config: LiveConfig, http: httpx.AsyncClient) -> dict[str, Route]:
+    available = available_families()
+    adapters = {
+        family: adapter(http)
+        for family, adapter in _ADAPTERS.items()
+        if family in available
+    }
+    return {
+        model: Route(entry.family, adapters[entry.family])
+        for model, entry in config.models.items()
+        if entry.family in adapters
+    }
 
 
 async def _main(args: argparse.Namespace) -> int:
@@ -440,24 +469,20 @@ async def _main(args: argparse.Namespace) -> int:
             routes=None,
         )
         return int(not okay)
-    available = available_families()
     async with httpx.AsyncClient(timeout=60) as http:
-        adapters = {
-            family: adapter(http)
-            for family, adapter in _ADAPTERS.items()
-            if family in available
-        }
-        routes = {
-            model: Route(entry.family, adapters[entry.family])
-            for model, entry in config.models.items()
-            if entry.family in adapters
-        }
+        routes = live_routes(config, http)
         if args.command == "probe":
             report = await probe_roster(config, args.output, routes)
             passed = sum(result.status == "passed" for result in report.results)
             print(f"{passed}/{len(report.results)} effort probes passed")
             return int(passed != len(report.results))
-        _assert_probed(config, args.output, routes)
+        require_probes(
+            config,
+            args.output,
+            routes,
+            {config.toy.initial_model, config.toy.successor_model},
+            config.toy.effort,
+        )
         okay = await run_live_toy(
             config,
             args.output,

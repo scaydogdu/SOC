@@ -115,3 +115,15 @@ uv run --locked --offline --extra embeddings python -m soc.orchestrator.live rep
 ```
 
 `config/m1-live.yaml` sets a shared USD 40 ceiling on standard text-generation charges. The persistent spend ledger reserves at the configured model limits before each physical attempt, including retries. Provider-reported usage settles the reservation at the configured price ceilings. A call with unknown usage retains its reservation. These figures are local upper estimates of token charges. Use the provider invoices to reconcile billed spend.
+
+## Episode authoring
+
+Create a draft from an inclusive RFC section range. The generator makes one chunk per section, retains stable source IDs, and prints candidate scope keys. Add `--glossary FILE` to include known terms. Fill the brief, events, preferences, seeds, and affected sites in the draft before sealing it.
+
+```sh
+uv run --locked --offline python -m eval.authoring skeleton tests/fixtures/rfc9700.xml /path/to/draft --first 1 --last 4
+uv run --locked --offline python -m eval.authoring coverage /path/to/draft
+uv run --locked --offline python -m eval.authoring seal /path/to/draft
+```
+
+The coverage report works before the event positions are filled and lists all unmet checks. Sealing validates the complete package before updating its manifest. For a nightly independent review, run `python -m eval.precheck /path/to/draft --campaign /path/to/m1-campaign` after the chosen flagship passes its high-effort probe. The precheck keeps the answer keys out of model prompts, puts reports and cache entries outside the episode, and leaves disagreements for the author to adjudicate. Seed wording differences, including paraphrases, appear for review.
