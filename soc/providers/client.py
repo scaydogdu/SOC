@@ -20,6 +20,7 @@ from soc.providers.models import (
     Output,
     Provider,
     ProviderRequest,
+    ProviderRequestError,
     RecordedReply,
     Reply,
     Request,
@@ -197,7 +198,23 @@ class ModelClient:
                     reply = Reply(outcome=Outcome.BUDGET_EXHAUSTED)
                     break
                 attempt_start = monotonic()
-                reply = await route.provider.generate(parameters)
+                try:
+                    reply = await route.provider.generate(parameters)
+                except ProviderRequestError:
+                    self._log(
+                        request,
+                        key,
+                        price,
+                        RecordedReply(
+                            outcome=Outcome.PARSE_FAILED,
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                            latency_seconds=monotonic() - start,
+                        ),
+                        "provider",
+                        attempt=None,
+                    )
+                    raise
                 self.tokens += reply.input_tokens + reply.output_tokens
 
             input_tokens += reply.input_tokens

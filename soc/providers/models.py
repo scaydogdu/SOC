@@ -24,6 +24,10 @@ class Mode(StrEnum):
     RECORD_MISSING = "record_missing"
 
 
+class ProviderRequestError(RuntimeError):
+    """A request configuration or a permanent provider rejection."""
+
+
 class Message(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
