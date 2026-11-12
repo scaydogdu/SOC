@@ -1,4 +1,4 @@
-"""Enforce the M0 branch floor separately for each core area."""
+"""Enforce the branch floor separately for each core area."""
 
 import json
 import sys
@@ -7,6 +7,7 @@ groups = {
     "ledger": ("soc/ledger/",),
     "episode": ("soc/episode.py", "eval/episode.py"),
     "segmenter": ("soc/tasks/",),
+    "providers": ("soc/providers/",),
 }
 files = json.load(sys.stdin)["files"]
 failed = False

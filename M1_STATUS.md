@@ -39,3 +39,12 @@ These are documentation and installed-source checks. The roster probe, provider 
 ## Starting regression check
 
 `./scripts/check` passed. Ruff, strict mypy, and the import contract passed. Pytest reported `74 passed in 28.49s`. Branch coverage was 96.8% for the ledger, 98.1% for episodes, and 98.5% for the segmenter. These checks cover the existing M0 suite. The next M1 implementation step is the shared model-client interface and SOC record-and-replay cache.
+
+## Shared model client and cache (§4.2)
+
+- `soc/providers/models.py` defines the typed request and adapter contract. The client validates successful structured responses with the caller's Pydantic model. It retries a parse failure once with a JSON repair instruction, a refusal once, and transient rate-limit or server failures with configured exponential backoff and jitter. A cut-off ends the call.
+- The SQLite cache hashes the model, effort, full messages, schema, sampling settings, and replicate. The first response for a key is available for reuse. Each run and call ID also has an exact response record, so two calls with identical inputs can replay their distinct responses. Replay accepts no provider routes and raises `CacheMiss` for a missing response while the run has budget.
+- A per-family semaphore and request interval constrain provider attempts, including retries. The per-run token cap stops new attempts once reported usage reaches the threshold. Attempts already in flight can finish and make the final total exceed the cap. Exact replay preserves their results and usage.
+- `calls.jsonl.gz` records attempt rows and logical call summaries with cache key, outcome, latency, token counts, and estimated cost from configured model prices. Use summary rows (`attempt` is `null`) for logical-call totals. The log omits prompts and response text. The client rejects requests containing configured provider keys and strips echoed keys from responses before caching.
+
+The 14 focused tests passed. `./scripts/check` reported `88 passed in 31.23s`, with Ruff, strict mypy, and the import contract passing. Provider branch coverage was `42/42 (100.0%)`. The offline suite allows Unix-domain sockets for the asyncio event loop and still blocks network sockets and DNS. These tests use in-process scripted replies. The provider adapters, YAML-driven fakes, hard live-spend cap, and live probes are pending.
