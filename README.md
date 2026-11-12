@@ -53,7 +53,7 @@ Use `snapshot()` for the refreshed projection, `rebuild()` for independent repla
 
 Every commitment version stores exactly one `soc:strength` value, `must` (required), `should` (advised), or `may` (optional). The typed input defaults to `must` when the field is omitted. Strength is independent of state and consistency. Historical records without the field read as `must` through the typed projection. M0 records strength for later use.
 
-The hand-written ontology, context, SHACL shapes, and fixtures are under `soc/ledger/schema`. The Turtle ontology declares and describes the RDF classes and properties used by the ledger. The SHACL shapes define required fields, cardinalities, and allowed values. The intended semantics of `soc:antecedent` and `soc:consequent` remain an open design decision.
+The hand-written ontology, context, SHACL shapes, and fixtures are under `soc/ledger/schema`. The Turtle ontology declares and describes the RDF classes and properties used by the ledger. The SHACL shapes define required fields, cardinalities, and allowed values. The [approved M2 ontology design](REVIEW_M0_2.md#b4-antecedent-and-consequent-mean-something-else-here) defines `soc:antecedent` as the condition under which a commitment version applies and `soc:consequent` as what it requires.
 
 Run the extended state machine and toy write benchmark after setup:
 

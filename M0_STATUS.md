@@ -59,7 +59,7 @@ The widened state machine models three commitments, overlapping scopes, recurrin
 
 RFC 9700 acknowledgements now include the inline contact names in reading text. The section round trip still passes.
 
-The offline suite reported **65 passed in 31.72 seconds**, with **33.64 seconds** elapsed for the full check script. Branch coverage was **96.8%** for the ledger, **98.1%** for episodes, and **98.5%** for the segmenter. Ruff, strict mypy, and the import contract passed. The second review's design questions remain in [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md).
+The offline suite reported **65 passed in 31.72 seconds**, with **33.64 seconds** elapsed for the full check script. Branch coverage was **96.8%** for the ledger, **98.1%** for episodes, and **98.5%** for the segmenter. Ruff, strict mypy, and the import contract passed. See [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) for remaining decisions.
 
 The expanded Hypothesis run completed with **10,000 passing sequences and zero failures**. Seeds 801 through 810 each produced 1,000 passing sequences, with a longest run of 108.67 seconds. Reproduce each seed with the documented command and `SOC_LEDGER_EXAMPLES=1000`. The updated toy workload measured **4.100 ms median** and **9.810 ms p95** for validation per write over 130 writes.
 
@@ -83,7 +83,7 @@ Strength is a lowercase string on the typed ruling and commitment version. The t
 
 The focused run reported `14 passed, 29 deselected in 0.69s`. The complete ledger unit, RFC unit, and ledger schema run reported `43 passed in 1.16s`. The offline suite reported `73 passed in 31.41s`, with 33.17 seconds elapsed for `./scripts/check`. Ruff, strict mypy, and the import contract passed. Branch coverage was 96.8% for the ledger, 98.1% for episodes, and 98.5% for the segmenter. A compatibility check used a SQLite ledger created by `3ea735e`, reopened it with a typed `must`, appended a version with `may`, and verified the original event and the hash chain.
 
-Deferred by scope are the Section B design decisions, strength-based gate behavior, the operational profile, and M1 or later work.
+Can approved the [five Section B design decisions](REVIEW_M0_2.md#b-design-questions--decided-by-can-on-11-november-2026) for M2. Their implementation, strength-based gate behavior, and the operational profile are outside M0 scope.
 
 The final Hypothesis run passed **10,000 sequences with zero failures**. Each run stopped at `settings.max_examples=1000`. Reproduce using the seeded command in the README with `SOC_LEDGER_EXAMPLES=1000` and seeds 901–910.
 

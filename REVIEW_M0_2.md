@@ -83,9 +83,17 @@ Committing between the `Superseded` insert and the `Tombstoned` insert passes al
 
 ---
 
-## B. Design questions for Can — do not settle these yourself
+## B. Design questions — decided by Can on 11 November 2026
 
-Codex raised the first two in `OPEN_QUESTIONS.md`. The reviewer found the next three. Each has the reviewer's recommendation, which is not a decision.
+Codex raised the first two in `OPEN_QUESTIONS.md`. The reviewer found the next three. Each item keeps the reviewer's original recommendation for the record.
+
+**Can decided B1 to B5 on 11 November 2026 and confirmed this to the reviewer the same day.** The "Decision" paragraph under each item is Can's and is binding for M2. Where a decision differs from the reviewer's recommendation, the decision governs. It goes further in three places:
+
+- **B2:** a conflict is defined per decision subject and use site, not per scope.
+- **B3:** a rebuild is accepted against the previous build number (compare-and-set).
+- **B5:** brief citations resolve against the brief in force at the time of the write.
+
+None of B1 to B5 is to be built in M0. Keep the current behaviour until M2.
 
 ### B1. Who owns a ruling
 
@@ -95,17 +103,23 @@ The design says something different: a triad's ruling may be revised by a new tr
 
 **Recommendation:** make the owner an authority class — the principal, or triads — and enforce who may ratify at each consistency level when the triad protocol arrives in M2. Keep the current check until then. Authentication of the caller belongs to the orchestrator.
 
+**Decision.** Give each commitment an authority class scoped to the operation. The principal owns the brief and principal-issued rulings. An authorized triad can revise a triad-owned ruling when it cites new evidence and meets the approval requirements for the ruling's consistency level. The orchestrator authenticates the actor and verifies approvals. The ledger enforces the authority on each write and records the actual approvers. Keep the current agent-ID owner check until the M2 triad protocol is ready.
+
 ### B2. Two rulings on one scope raise no conflict
 
 Compare-and-set is per commitment ID. Two commitments with different IDs can both be current for the scope `access token` with different renderings, and `in_scope` returns both. The design's central case — two triads ruling on one scope at once — produces a conflict only if both happen to use the same commitment ID.
 
 **Recommendation:** make the conflict a property of the scope: either derive the commitment's identity from its scope, or reject a ratification whose scope overlaps a different current commitment and write a conflict event. This should be decided before M2.
 
+**Decision.** Keep stable commitment IDs. Within an operation, allow one binding ruling per decision subject at each applicable use site. Two different IDs for the translation of *access token* in the same section conflict. A terminology ruling and a numeric-preservation ruling can both apply to the same sentence. Check for overlap in the same transaction as the write. On collision, record `ConflictRaised` with both IDs and the overlap. The existing ruling stays binding until the conflict is resolved. Use explicit, disjoint scopes for exceptions.
+
 ### B3. A repaired chunk cannot be recorded
 
 A second `ChunkBuilt` for the same chunk is rejected as "chunk already built" (`store.py:412`). After a revision, a repaired chunk therefore cannot record the versions it now uses, and its usage record stays on the old version. The final sweep, which compares each chunk's recorded versions with the ledger, would flag it forever.
 
 **Recommendation:** allow a rebuild event that carries a build number, keep the history, and let the projection show the latest build per chunk.
+
+**Decision.** Append another `ChunkBuilt` for the same chunk with the next build number, starting at 1. Record the output reference, ledger snapshot, and commitment versions actually used. Accept the build against the previous build number so competing repairs cannot silently replace each other. Keep every build for audit and use the latest accepted build for current usage and the final sweep.
 
 ### B4. `antecedent` and `consequent` mean something else here
 
@@ -115,9 +129,13 @@ The ontology file is also thin: 22 lines, with no domain, range, label or commen
 
 **Recommendation:** rename the event links (for example to PROV's `used` and `generated`), reserve the two terms for the commitment, and complete the ontology's declarations before it is frozen. The same vocabulary is meant to serve the Semantic Web project.
 
+**Decision.** Put `soc:antecedent` and `soc:consequent` on each commitment version. The antecedent expresses when the ruling applies, and the consequent expresses what it requires. A revision activity links to the old version with `prov:used` and the new version with `prov:generated`. The new version links back to the old one with `prov:wasRevisionOf`. Complete the vocabulary declarations, including domains, ranges, labels, and comments, and align the JSON-LD context and SHACL shapes before freezing the schema.
+
 ### B5. The episode is optional when writing
 
 Without an episode, the ledger checks citations for form only (`store.py:250`). **Recommendation:** make the public episode mandatory in the orchestrator, as Codex suggests, and keep the optional form for unit tests.
+
+**Decision.** Require the validated public episode when the orchestrator opens a writable ledger for a run. Resolve source citations and verify verbatim quotes against that episode. Resolve brief citations against the brief in force at the write, including accepted changes. Keep episode-free construction for isolated ledger tests, where source and brief references receive structural validation.
 
 ### B6. Questions that can now be closed
 
