@@ -83,6 +83,8 @@ class OpenAIProvider:
                     }
                 },
                 "store": False,
+                "service_tier": "default",
+                "prompt_cache_options": {"mode": "explicit"},
             },
             response_type=_Response,
         )
@@ -101,4 +103,5 @@ class OpenAIProvider:
             ),
             input_tokens=wire.usage.input_tokens if wire.usage else 0,
             output_tokens=wire.usage.output_tokens if wire.usage else 0,
+            usage_reported=wire.usage is not None,
         )

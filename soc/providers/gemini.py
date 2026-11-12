@@ -30,6 +30,7 @@ class _Usage(BaseModel):
     prompt: int = Field(default=0, alias="promptTokenCount", ge=0)
     output: int = Field(default=0, alias="candidatesTokenCount", ge=0)
     thoughts: int = Field(default=0, alias="thoughtsTokenCount", ge=0)
+    total: int | None = Field(default=None, alias="totalTokenCount", ge=0)
 
 
 class _Part(BaseModel):
@@ -112,5 +113,9 @@ class GeminiProvider:
                 part.text for part in candidate.content.parts if not part.thought
             ),
             input_tokens=wire.usage.prompt,
-            output_tokens=wire.usage.output + wire.usage.thoughts,
+            output_tokens=max(
+                wire.usage.output + wire.usage.thoughts,
+                (wire.usage.total or 0) - wire.usage.prompt,
+            ),
+            usage_reported=wire.usage.prompt > 0 and wire.usage.total is not None,
         )

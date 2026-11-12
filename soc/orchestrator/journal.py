@@ -70,12 +70,18 @@ class Journal:
 
 
 @contextmanager
-def open_journal(directory: Path, fingerprint: str) -> Iterator[Journal]:
+def run_lock(directory: Path) -> Iterator[None]:
     directory.mkdir(parents=True, exist_ok=True)
     with (directory / ".run.lock").open("a+b") as lock:
         try:
             flock(lock, LOCK_EX | LOCK_NB)
         except BlockingIOError as exc:
             raise RuntimeError("another process owns this run directory") from exc
+        yield
+
+
+@contextmanager
+def open_journal(directory: Path, fingerprint: str) -> Iterator[Journal]:
+    with run_lock(directory):
         with closing(sqlite3.connect(directory / "journal.sqlite")) as db:
             yield Journal(db, fingerprint)

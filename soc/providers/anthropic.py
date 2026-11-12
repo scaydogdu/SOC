@@ -83,4 +83,5 @@ class AnthropicProvider:
                 + (wire.usage.cache_read_input_tokens or 0)
             ),
             output_tokens=wire.usage.output_tokens,
+            usage_reported=True,
         )

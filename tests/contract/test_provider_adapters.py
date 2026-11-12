@@ -82,6 +82,7 @@ SUCCESS = {
             "promptTokenCount": 11,
             "candidatesTokenCount": 6,
             "thoughtsTokenCount": 3,
+            "totalTokenCount": 20,
         },
     },
 }
@@ -131,6 +132,8 @@ def test_wire_contract(provider, effort):
             assert data["max_output_tokens"] == 2048
             assert data["reasoning"] == {"effort": effort}
             assert data["store"] is False
+            assert data["service_tier"] == "default"
+            assert data["prompt_cache_options"] == {"mode": "explicit"}
             assert [item["role"] for item in data["input"]] == [
                 "system",
                 "user",

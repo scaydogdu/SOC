@@ -103,3 +103,15 @@ uv run --locked --offline python -m soc.orchestrator data/episodes/toy "$soc_run
 Use the same run directory and configuration to resume. The runner restores completed worker steps from `journal.sqlite` and recovers a pending step from its exact cached response when present. It can repeat an interrupted request if the response had yet to reach the cache.
 
 `run.json` records the run identity, configuration, prompt hashes, status, token counts, and estimated cost. The directory also contains compressed call logs, delivered decision versions, scheduled events, per-attempt checker findings, final chunks, and a final check against the active brief. The single experiment-level repair limit covers both draft and post-revision repairs. The toy CLI uses scripted responses, a hash embedder, and test-only modal wording.
+
+## Nightly live checks
+
+Set `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and either `GEMINI_API_KEY` or `GOOGLE_API_KEY` in the execution environment. Use one campaign directory for probes, the live toy, and its replay. The live toy uses the pinned local BGE-M3 checkpoint.
+
+```sh
+uv run --locked python -m soc.orchestrator.live probe --output /path/to/m1-campaign
+uv run --locked --extra embeddings python -m soc.orchestrator.live toy --output /path/to/m1-campaign
+uv run --locked --offline --extra embeddings python -m soc.orchestrator.live replay --output /path/to/m1-campaign
+```
+
+`config/m1-live.yaml` sets a shared USD 40 ceiling on standard text-generation charges. The persistent spend ledger reserves at the configured model limits before each physical attempt, including retries. Provider-reported usage settles the reservation at the configured price ceilings. A call with unknown usage retains its reservation. These figures are local upper estimates of token charges. Use the provider invoices to reconcile billed spend.

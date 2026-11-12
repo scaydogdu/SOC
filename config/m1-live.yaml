@@ -1,0 +1,45 @@
+# USD ceilings for standard direct, text-only requests. No tools or explicit caching.
+# Use the same campaign directory for probes and the toy run.
+spend_cap_usd: "40.00"
+token_cap_per_run: 100000
+probe_max_output_tokens: 4096
+models:
+  claude-opus-5-5:
+    family: anthropic
+    limits: {max_input_tokens: 1100000, max_output_tokens: 131072, input_per_million: 4, output_per_million: 20}
+  claude-sonnet-5-5:
+    family: anthropic
+    limits: {max_input_tokens: 1100000, max_output_tokens: 131072, input_per_million: 2, output_per_million: 10}
+  claude-haiku-5-5:
+    family: anthropic
+    limits: {max_input_tokens: 1100000, max_output_tokens: 131072, input_per_million: 0.5, output_per_million: 2.5}
+  gpt-6-astra:
+    family: openai
+    limits: {max_input_tokens: 1100000, max_output_tokens: 131072, input_per_million: 20, output_per_million: 75}
+  gpt-6.1-sol:
+    family: openai
+    limits: {max_input_tokens: 1100000, max_output_tokens: 131072, input_per_million: 4, output_per_million: 15}
+  gpt-6-luna:
+    family: openai
+    limits: {max_input_tokens: 1100000, max_output_tokens: 131072, input_per_million: 0.4, output_per_million: 1.5}
+  gemini-4-argon:
+    family: google
+    limits: {max_input_tokens: 1100000, max_output_tokens: 1100000, input_per_million: 4, output_per_million: 20}
+  gemini-3.8-flash:
+    family: google
+    limits: {max_input_tokens: 1100000, max_output_tokens: 131072, input_per_million: 1.5, output_per_million: 7.5}
+  gemini-3.5-flash-lite:
+    family: google
+    limits: {max_input_tokens: 1100000, max_output_tokens: 131072, input_per_million: 0.3, output_per_million: 2.5}
+provider_limits:
+  anthropic: {requests_per_minute: 20}
+  openai: {requests_per_minute: 20}
+  google: {requests_per_minute: 20}
+toy:
+  initial_model: gpt-6.1-sol
+  successor_model: gpt-6-luna
+  effort: low
+experiment:
+  max_repair_rounds: 2
+  max_output_tokens: 4096
+  normative: []

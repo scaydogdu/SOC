@@ -72,6 +72,7 @@ class Reply(BaseModel):
     raw_text: str = ""
     input_tokens: Annotated[int, Field(ge=0)] = 0
     output_tokens: Annotated[int, Field(ge=0)] = 0
+    usage_reported: bool = False
 
 
 class RecordedReply(Reply):

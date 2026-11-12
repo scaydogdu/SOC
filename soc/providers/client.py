@@ -26,6 +26,7 @@ from soc.providers.models import (
     Request,
     Response,
 )
+from soc.providers.spend import SpendGuard
 
 
 class CacheMiss(LookupError):
@@ -114,6 +115,7 @@ class ModelClient:
         routes: dict[str, Route] | None = None,
         provider_limits: dict[str, ProviderLimits] | None = None,
         initial_tokens: int = 0,
+        spend_guard: SpendGuard | None = None,
     ) -> None:
         if mode is Mode.REPLAY and routes:
             raise ValueError("replay does not accept provider routes")
@@ -124,6 +126,7 @@ class ModelClient:
         self.cache = cache
         self.limits = limits
         self.prices = prices.copy()
+        self._spend_guard = spend_guard
         self._routes = (routes or {}).copy()
         self._throttles = {
             name: _Throttle(config) for name, config in (provider_limits or {}).items()
@@ -227,6 +230,14 @@ class ModelClient:
                 if self.tokens >= self.limits.token_cap:
                     reply = Reply(outcome=Outcome.BUDGET_EXHAUSTED)
                     break
+                reservation = None
+                if self._spend_guard is not None:
+                    reservation = self._spend_guard.reserve(
+                        request.run_id, request.call_id, request.model
+                    )
+                    if reservation is None:
+                        reply = Reply(outcome=Outcome.BUDGET_EXHAUSTED)
+                        break
                 attempt_start = monotonic()
                 try:
                     reply = await route.provider.generate(parameters)
@@ -246,6 +257,8 @@ class ModelClient:
                     )
                     raise
                 self.tokens += reply.input_tokens + reply.output_tokens
+                if self._spend_guard is not None and reservation is not None:
+                    self._spend_guard.settle(reservation, request.model, reply)
 
             input_tokens += reply.input_tokens
             output_tokens += reply.output_tokens
@@ -290,6 +303,7 @@ class ModelClient:
             raw_text=reply.raw_text,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            usage_reported=reply.usage_reported,
             latency_seconds=monotonic() - start,
         )
 
