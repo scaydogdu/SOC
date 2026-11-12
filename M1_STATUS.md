@@ -1,0 +1,41 @@
+# M1 status
+
+## 12 November 2026 · Inspect AI trial
+
+M1 started from the accepted M0 baseline. The trial used Inspect AI `0.3.289` in an isolated `uv` environment. All three providers' credentials were absent from the process environment, so the trial used a scripted response at Inspect's model boundary and inspected the installed provider adapters. Live calls made and spend incurred were both zero.
+
+| §4.1 criterion | Evidence |
+| --- | --- |
+| Structured outputs across all three providers | The installed adapters serialize OpenAI Responses `text.format`, Google `response_json_schema` with `response_mime_type`, and Anthropic's older `output_format` beta request. Anthropic's current documentation uses `output_config.format`. Live schema-constrained calls are pending. |
+| Roster effort settings | Installed adapters map Inspect's `reasoning_effort` to provider settings. Inspect documents automatic effort fallback for rejected settings, so a successful response alone would not prove that the configured effort was used. Live roster verification is pending. |
+| Multi-call byte-identical replay without network | Two scripted responses replayed byte-for-byte with socket connects, DNS, and provider generation disabled. An unseen input reached the provider boundary, so SOC needs a separate cache-only path that fails on misses. |
+| Input and output tokens per call | Both values were present in `ModelOutput.usage` and identical on replay. The trial injected 11 input and 5 output tokens per call. Live provider accounting is pending. |
+| Independent model layer | `get_model().generate()` worked without constructing an Inspect evaluation task, solver, or scorer. |
+| Licence | The installed wheel includes the MIT licence. |
+
+[Inspect model API](https://inspect.aisi.org.uk/reference/inspect_ai.model.html) · [Inspect provider behavior](https://inspect.aisi.org.uk/providers.html) · [Inspect licence](https://github.com/UKGovernmentBEIS/inspect_ai/blob/main/LICENSE)
+
+Reproduce the trial after installing the pinned dependency in the isolated environment.
+
+```sh
+uv run --no-project --python 3.12 --with inspect-ai==0.3.289 -- python scripts/trial_inspect.py
+```
+
+```text
+2 calls: response bytes and reported usage matched with provider and sockets disabled
+Cache miss attempted provider generation
+```
+
+**Working choice.** Start with thin provider clients behind the shared SOC interface and keep replay independent of provider code. This lets the offline work proceed while Can's Inspect AI decision and live probe results are pending.
+
+## Provider parameter verification
+
+- **Anthropic Messages.** Send JSON Schema through `output_config.format` and set `output_config.effort` to `low` or `high`. The effort guide lists Opus 5.5, Sonnet 5.5, and Haiku 5.5 with both levels. [Structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) · [Effort](https://platform.claude.com/docs/en/build-with-claude/effort)
+- **OpenAI Responses.** Send a strict JSON Schema through `text.format` and set `reasoning.effort` to `low` or `high`. The GPT-6 guide lists the three roster IDs and calls for omitting `temperature`, `top_p`, and `top_logprobs` when reasoning effort is enabled. [Structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs) · [GPT-6 guide](https://developers.openai.com/api/docs/guides/latest-model)
+- **Google Gemini.** Generate Content supports JSON schema through the SDK's `response_json_schema` with JSON MIME type. `response_format` is the Interactions API field. Set `thinking_level` to `low` or `high`. Both are documented for Argon and 3.8 Flash. Flash-Lite also offers `minimal`. [Structured outputs](https://aistudio.google.com/docs/structured-output) · [Gemini 4 Argon](https://aistudio.google.com/docs/models/gemini-4-argon) · [Gemini thinking](https://ai.google.dev/gemini-api/docs/thinking)
+
+These are documentation and installed-source checks. The roster probe, provider token accounting, and recorded live toy run still require environment-provided API keys and the configured M1 spend cap.
+
+## Starting regression check
+
+`./scripts/check` passed. Ruff, strict mypy, and the import contract passed. Pytest reported `74 passed in 28.49s`. Branch coverage was 96.8% for the ledger, 98.1% for episodes, and 98.5% for the segmenter. These checks cover the existing M0 suite. The next M1 implementation step is the shared model-client interface and SOC record-and-replay cache.
