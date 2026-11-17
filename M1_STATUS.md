@@ -101,3 +101,28 @@ The no-credential preflight reported `0/18 effort probes passed`, all 18 marked 
 - `eval.precheck` uses a probed flagship at high effort. Its requests contain the seed or affected-set task with source context and omit the author's expected answer and affected lists. The report compares normalized seed answers and exact affected use-site multisets. A paraphrase may be flagged for adjudication. Precheck output and cache are separate from runtime output and the episode package. Calls share the campaign spend ceiling.
 
 The RFC 9700 CLI smoke generated 41 candidates from sections 1–4. Its unfilled draft passed 6 of 12 coverage checks, and the existing toy passed 16 of 16. Mocked precheck found two deliberate disagreements and one agreement, with the episode files unchanged. `./scripts/check` reported `206 passed, 2 deselected in 27.05s`. Ruff, strict mypy, and the import contract passed. Provider branch coverage was 94.5%, checker coverage was 97.0%, and baseline coverage was 100.0%. The actual flagship precheck remains unverified until live credentials and its successful probe are available.
+
+## M1 exit checklist
+
+Checked on 17 November 2026. The live preflight found no provider keys. Campaign spend remains USD 0 and live token totals and latency are unavailable.
+
+| # | Exit test | Evidence and status |
+| --- | --- | --- |
+| 1 | Inspect AI trial | Six-criterion report and reproducible offline cache trial above. Retention decision remains open. |
+| 2 | Contract probe | Blocked on credentials for all 18 model-effort combinations. Recorded in [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md). |
+| 3 | Replay | Scripted run matched byte-for-byte with network blocked and a cache miss raised. Actual live replay is pending. |
+| 4 | Re-scoring | Independently re-scoring the saved toy translations reproduced the final findings. |
+| 5 | Failure handling | Tests exercise transient backoff, refusal and cut-off outcomes, and one JSON repair retry. |
+| 6 | Budget guard | At the token cap, the scripted run returned `budget_exhausted` and preserved and scored two chunks. |
+| 7 | Resume | Two simulated process kills recovered the cached response and produced the same projections as uninterrupted replay, with eight physical calls. |
+| 8 | Checker fixture | 54 paired broken and corrected cases across the six rules, plus explicit `unknown`, scope, and offset checks. |
+| 9 | Memory interface | The RAG workflow passed the reusable memory contract. |
+| 10 | Delivered decisions | The eight toy prompts matched their logged decision IDs and versions. |
+| 11 | Scripted baseline | Four chunks completed, including executor and brief changes, revision search, and repairs. |
+| 12 | Live baseline | Blocked on credentials and the selected models passing their probes. |
+| 13 | Repair budget | One experiment-level cap is enforced under two condition labels. The actual ledger arm will exercise the policy in M2. |
+| 14 | Secrets | The toy test scanned rendered prompts, cache, logs, and run artifacts for key-like strings. |
+| 15 | Boundaries | Import-linter passed. The toy ran from the three public episode files alone. |
+| 16 | Hygiene | Offline results and package coverage below. |
+
+`./scripts/check` reported `206 passed, 2 deselected in 27.99s`. Ruff, strict mypy, and the import contract passed. Branch coverage was providers `138/146 (94.5%)`, checker `64/66 (97.0%)`, and baseline `26/26 (100.0%)`. The live command reported `0/18 effort probes passed`, with 18 missing-credential results and zero provider attempts.
