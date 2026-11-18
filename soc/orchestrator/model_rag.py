@@ -6,7 +6,13 @@ from soc.baseline.memory import RAGMemory
 from soc.baseline.retrieval import Embedder, RetrievalConfig
 from soc.enforce.checker import Checker
 from soc.episode import Episode, load_runtime, reusable_term_sites, validate_runtime
-from soc.ledger.models import Actor, CommitmentVersion, GateFinding, PrincipalAnswered
+from soc.ledger.models import (
+    Actor,
+    CommitmentVersion,
+    GateFinding,
+    PrincipalAnswered,
+    ResolutionTrace,
+)
 from soc.memory import TermNote
 from soc.orchestrator.journal import Attempt
 from soc.orchestrator.ledger_runner import ChunkTask, LedgerRunSpec
@@ -132,6 +138,7 @@ class _RAGTriad:
             return result.answer
 
         terms: list[TermNote] = []
+        resolutions: list[ResolutionTrace] = []
         output = None
         try:
             result, _ = await self.triad.resolve(
@@ -146,6 +153,7 @@ class _RAGTriad:
             )
             outcome = Outcome.OK
             output = result.draft
+            resolutions = [decision.trace() for decision in result.decisions]
             for decision in result.decisions:
                 if decision.term is None or decision.term_rendering is None:
                     continue
@@ -175,6 +183,7 @@ class _RAGTriad:
             estimated_cost_usd=sum(row[2] for row in usage),
             terms=terms,
             principal_answers=answers,
+            resolutions=resolutions,
         )
 
 

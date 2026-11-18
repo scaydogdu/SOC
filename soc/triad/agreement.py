@@ -12,6 +12,8 @@ from soc.ledger.models import (
     CommitmentVersion,
     Consistency,
     Record,
+    ResolutionBallot,
+    ResolutionTrace,
     Text,
 )
 from soc.memory import ChunkInput, ChunkOutput, Translation
@@ -106,6 +108,20 @@ class Decision:
     ballots: tuple[tuple[str, Ballot], ...]
     term: TermTarget | None = None
     term_rendering: str | None = None
+
+    def trace(self) -> ResolutionTrace:
+        return ResolutionTrace(
+            sentence_id=self.examination.difference.sentence_id,
+            decision_kind=self.kind,
+            required=self.required,
+            consistency=self.consistency,
+            rendering=self.rendering,
+            approvers=list(self.approvals),
+            ballots=[
+                ResolutionBallot(voter=voter, choice=ballot.choice)
+                for voter, ballot in self.ballots
+            ],
+        )
 
     @property
     def provisional(self) -> bool:

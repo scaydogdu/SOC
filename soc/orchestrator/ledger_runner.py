@@ -27,7 +27,12 @@ from soc.ledger.store import ChunkIdBase, Ledger, RevisionHint
 from soc.memory import ChunkInput, ChunkOutput
 from soc.orchestrator.handover import ExecutorHandover, rebind_executor
 from soc.orchestrator.journal import open_journal
-from soc.orchestrator.ledger_checks import capture_worker_draft, gate_chunk, gate_chunks
+from soc.orchestrator.ledger_checks import (
+    capture_worker_draft,
+    gate_chunk,
+    gate_chunks,
+    score_chunks,
+)
 from soc.orchestrator.prompts import digest, json_text
 from soc.orchestrator.runner import ExperimentSettings, RunSpec, _write
 from soc.orchestrator.scheduled import record_approval, record_revisions
@@ -416,6 +421,17 @@ class _LedgerExecution:
                 if key in outputs
             ),
         )
+        findings = (
+            state.gates
+            if outcome is Outcome.OK
+            else score_chunks(
+                self.ledger,
+                {key: self.chunks[key] for key in outputs},
+                checker=self.checker,
+                load_output=self.load_output,
+                normative=self.experiment.normative,
+            )
+        )
         _write(
             self.directory,
             "final_findings.jsonl",
@@ -423,13 +439,13 @@ class _LedgerExecution:
                 json_text(
                     {
                         "chunk": self.chunks[key].position,
-                        **state.gates[key].model_dump(mode="json"),
+                        **findings[key].model_dump(mode="json"),
                     }
                 )
                 + "\n"
                 for key in self.chunks
-                if key in state.gates
-                and state.gates[key].build_number == state.chunks[key].build_number
+                if key in findings
+                and findings[key].build_number == state.chunks[key].build_number
             ),
         )
         _write(

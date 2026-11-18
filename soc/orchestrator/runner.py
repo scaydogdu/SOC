@@ -299,6 +299,15 @@ class _Execution:
                 }
                 for answer in recorded.principal_answers
             )
+            self.events.extend(
+                {
+                    "event": "flag_resolved",
+                    "chunk": position,
+                    "round": round_number,
+                    "trace": trace.model_dump(mode="json"),
+                }
+                for trace in recorded.resolutions
+            )
         self.attempts.append(recorded)
         self.rounds[position] = round_number
         if recorded.outcome is Outcome.BUDGET_EXHAUSTED and not (

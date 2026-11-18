@@ -135,3 +135,44 @@ baseline: 34/34 branches (100.0%)
 ```
 
 M2 live condition verification remains open. The current execution environment exposes zero configured provider families. The guarded launcher still requires passing effort probes for the selected roster.
+
+## Offline exit verification
+
+Both arms now record the classification, required and actual approval levels, individual ballots, and selected rendering for resolved flags. An offline audit counts a non-abstaining vote at an independently annotated brief-gap site even if the model called it style. Site annotations stay in evaluation. A scripted normative disagreement received two votes for one draft and one for the other. Both arms applied the principal's answer under the unanimity rule.
+
+A model step now carries forward the ledger sequence observed during cross-examination. The new scenario commits a ruling revision during a review call, checks that the next response receives its hint, and validates a citation to the new version. When a SOC run ends early, publication checks the saved chunks against the active brief and current ledger. This scoring read leaves the prior gate and repair history intact for resume.
+
+| M2 scripted scenario | Verified behavior |
+| --- | --- |
+| 1. Reused terminology | `test_model_triad_records_reusable_term_and_resumes_through_shared_client` records a two-of-three term vote and later uses. |
+| 2. Normative dissent | `test_normative_dissent_escalates_and_offline_audit_counts_votes_on_brief_gaps` applies the principal's answer in both arms. |
+| 3. Brief gap voted on | The same test counts the vote on an annotated taste question classified as style, and verifies a recognized gap goes directly to the principal. |
+| 4. Fabricated citation | `test_cross_examination_aligns_sentences_and_caps_questions` treats the answer as absent. |
+| 5. Silent decision | `test_capture_records_verifiable_manifest_entries_and_silent_uses` records the undeclared rendering. |
+| 6. Concurrent rulings | `test_two_authorized_triads_collide_on_same_subject_and_site` records one binding vote result and one conflict. |
+| 7. Stale and copied usage | `test_gate_checks_latest_rulings_tombstones_and_strength_by_site` and `test_repairs_at_review_gate_and_final_sweep_are_logged_once` exercise the stale earlier build and blocking of old output in a later chunk. |
+| 8. In-flight revision | `test_model_cross_examination_receives_ledger_revision_on_next_step` commits a real revision between the review and the answer. |
+| 9. Executor replacement | `test_ledger_runner_rebinds_resumes_repairs_and_gates_completed_episode` checks open flags, partial output and a monotonic ledger sequence. |
+| 10. Brief change | `test_paired_model_arms_measure_brief_change_repair_selection` checks both scheduled revisions and reports repair precision for each arm. |
+| 11. Planted error | M3 placeholder as specified in the plan. |
+| 12. Budget exhaustion | The ledger-runner resume scenario and `test_budget_exhaustion_keeps_and_scores_partial_output` check partial scoring. The SOC regression verifies that published findings use the revised brief while resume still sees the original gate history. |
+| 13. Retry and resume | The reusable-terminology model scenario and `test_process_killed_after_cache_write_resumes_without_repeating_call` check retry and resume from saved work. |
+| 14. Rebuild and acceptance | `test_repairs_at_review_gate_and_final_sweep_are_logged_once` verifies that final acceptance uses the new builds. |
+
+`./scripts/check` exited successfully.
+
+```text
+All checks passed!
+96 files already formatted
+Success: no issues found in 52 source files
+Contracts: 1 kept, 0 broken.
+261 passed, 2 deselected in 39.48s
+ledger: 344/374 branches (92.0%)
+episode: 52/54 branches (96.3%)
+segmenter: 67/68 branches (98.5%)
+providers: 150/160 branches (93.8%)
+checker: 66/68 branches (97.1%)
+baseline: 34/34 branches (100.0%)
+```
+
+M2 still requires a live episode in every SOC condition. No provider family was configured in this environment at verification time. The existing campaign's effort probes and spend cap remain the launch controls.

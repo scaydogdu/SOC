@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -945,12 +945,23 @@ class Ledger:
                         raise ValueError(
                             "flag resolution must refer to its original chunk"
                         )
+                    if _payload(prior, FlagResolved) != payload:
+                        raise ValueError(
+                            "flag resolution differs from its recorded trace"
+                        )
                     return prior
                 self._sync()
                 opened = self._live.open_flags.get(payload.flag_id)
                 if opened is None or chunk_id != opened[0]:
                     raise ValueError(
                         "flag resolution must refer to an open flag in this chunk"
+                    )
+                if (
+                    payload.trace is not None
+                    and payload.trace.sentence_id != opened[1].sentence_id
+                ):
+                    raise ValueError(
+                        "resolution trace must refer to the flagged sentence"
                     )
             elif isinstance(payload, ExecutorRebound):
                 kind = "ExecutorRebound"
@@ -1219,43 +1230,67 @@ class Ledger:
         with self._db:
             self._db.execute("BEGIN IMMEDIATE")
             self._sync()
-            state = self._live
             events = []
-            for chunk_id, build_number in build_numbers.items():
-                build = state.chunks.get(chunk_id)
-                if build is None or (
-                    build_number is not None and build.build_number != build_number
-                ):
-                    raise ValueError("gate requires the current chunk build")
-                stale = chunk_id in state.stale_chunks or (
-                    self._authority is not None
-                    and bool(
-                        _revision_hints(
-                            state, build.uses, build.use_sites, self._scope_keys
-                        )
-                    )
-                )
+            for chunk_id, verdict, stale in self._inspect_builds(
+                self._live, build_numbers, evaluate
+            ):
                 if stale:
-                    self._record_detection(actor, chunk_id, build.build_number, path)
-                findings = _dependency_findings(state, build, stale=stale)
-                if evaluate is not None:
-                    findings.extend(evaluate(chunk_id, state, build))
+                    assert verdict.build_number is not None
+                    self._record_detection(actor, chunk_id, verdict.build_number, path)
                 events.append(
-                    self._append(
-                        "GateDecision",
-                        actor,
-                        GateDecision(
-                            accepted=all(item.outcome != "block" for item in findings),
-                            reason=", ".join(item.detail for item in findings)
-                            if findings
-                            else "gate checks passed",
-                            build_number=build.build_number,
-                            findings=findings,
-                        ),
-                        chunk_id=chunk_id,
-                    )
+                    self._append("GateDecision", actor, verdict, chunk_id=chunk_id)
                 )
             return tuple(events)
+
+    def inspect_builds(
+        self,
+        build_numbers: Mapping[str, int | None],
+        *,
+        evaluate: Callable[[str, Projection, ChunkBuilt], Sequence[GateFinding]],
+    ) -> dict[str, GateDecision]:
+        """Score saved artifacts without changing the run's gate or repair history."""
+        return {
+            chunk_id: verdict
+            for chunk_id, verdict, _ in self._inspect_builds(
+                self.snapshot(), build_numbers, evaluate
+            )
+        }
+
+    def _inspect_builds(
+        self,
+        state: Projection,
+        build_numbers: Mapping[str, int | None],
+        evaluate: Callable[[str, Projection, ChunkBuilt], Sequence[GateFinding]] | None,
+    ) -> Iterator[tuple[str, GateDecision, bool]]:
+        for chunk_id, build_number in build_numbers.items():
+            build = state.chunks.get(chunk_id)
+            if build is None or (
+                build_number is not None and build.build_number != build_number
+            ):
+                raise ValueError("gate requires the current chunk build")
+            stale = chunk_id in state.stale_chunks or (
+                self._authority is not None
+                and bool(
+                    _revision_hints(
+                        state, build.uses, build.use_sites, self._scope_keys
+                    )
+                )
+            )
+            findings = _dependency_findings(state, build, stale=stale)
+            if evaluate is not None:
+                findings.extend(evaluate(chunk_id, state, build))
+            yield (
+                chunk_id,
+                GateDecision(
+                    accepted=all(item.outcome != "block" for item in findings),
+                    reason=", ".join(item.detail for item in findings)
+                    if findings
+                    else "gate checks passed",
+                    build_number=build.build_number,
+                    findings=findings,
+                ),
+                stale,
+            )
 
     def capture_draft(
         self,

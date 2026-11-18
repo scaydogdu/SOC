@@ -357,3 +357,70 @@ def test_ballot_append_failure_rolls_back_ruling_and_earlier_ballots(tmp_path):
         assert [event.type for event in ledger._events()] == ["Ratified"] + [
             "VoteCast"
         ] * 3
+
+
+def test_two_authorized_triads_collide_on_same_subject_and_site(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from soc.ledger.models import RulingConflict
+
+    path = tmp_path / "two-triads.sqlite"
+    agreement = read_yaml(CONFIG, AgreementRules)
+    subjects = DecisionSubject(kind="term", key="access token")
+    site = "9999-1-s01"
+    with open_run_ledger(TOY, path, "toy", authority=POLICY):
+        pass
+    ready = Barrier(2, timeout=10)
+
+    def submit(voters, rendering):
+        issuer = Actor(agent=voters[2], model="scripted", role="reviewer")
+        identity = IDENTITY.model_copy(
+            update={
+                "id": f"candidate-{issuer.agent}",
+                "owner": issuer.agent,
+                "authority": "triad",
+                "subject": subjects,
+            }
+        )
+        ruling = RULING.model_copy(
+            update={
+                "ratifier": issuer.agent,
+                "rendering": rendering,
+                "consistency": "QUORUM",
+                "sentence_ids": [site],
+            }
+        )
+        with open_run_ledger(TOY, path, "toy", authority=POLICY) as (episode, ledger):
+            decision = _decision(episode, voters, rendering, agreement)
+            ready.wait()
+            return record_triad_ruling(
+                ledger,
+                issuer,
+                identity,
+                0,
+                ruling,
+                decision,
+                agreement=agreement,
+                voters=voters,
+                reason="approved by scripted triad",
+            )
+
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        first = workers.submit(submit, VOTERS, "erişim jetonu")
+        second = workers.submit(submit, NEXT_VOTERS, "erişim belirteci")
+        events = [first.result(timeout=15), second.result(timeout=15)]
+    assert sorted(event.type for event in events) == ["ConflictRaised", "Ratified"]
+    winner = next(event for event in events if event.type == "Ratified")
+    loser = next(event for event in events if event.type == "ConflictRaised")
+    conflict = RulingConflict.model_validate(loser.payload["data"])
+    assert conflict.candidate_id == loser.commitment_id
+    assert conflict.subject == subjects
+    (overlap,) = conflict.overlaps
+    assert overlap.commitment_id == winner.commitment_id and overlap.sentence_ids == [
+        site
+    ]
+    with open_run_ledger(TOY, path, "toy", authority=POLICY) as (_, ledger):
+        assert set(ledger.snapshot().current) == {winner.commitment_id}
+        assert sum(event.type == "VoteCast" for event in ledger._events()) == 3
+        assert ledger.verify() is None

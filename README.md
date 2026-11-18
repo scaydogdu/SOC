@@ -166,6 +166,13 @@ uv run --locked --offline python -m eval.repair_precision /path/to/frozen-episod
 
 The report counts each scheduled decision and selected chunk once. A selection is correct if the frozen episode marks at least one repair site in that chunk for that decision. It also lists the number of annotated chunks and reports null precision when an arm selects no chunks. The benchmark annotations stay in the evaluation process.
 
+To count votes at independently annotated brief-gap sites, use the resolution audit. Each resolved flag counts once per review attempt when at least one participant casts a non-abstaining vote. The site's annotation is supplied to evaluation separately from the model's classification.
+
+```bash
+uv run --locked --offline python -m eval.brief_gap /path/to/soc-run \
+  --arm soc --sentence-id 9700-4.2-s03
+```
+
 ## Episode authoring
 
 Create a draft from an inclusive RFC section range. The generator makes one chunk per section, retains stable source IDs, and prints candidate scope keys. Add `--glossary FILE` to include known terms. Fill the brief, events, preferences, seeds, and affected sites in the draft before sealing it.

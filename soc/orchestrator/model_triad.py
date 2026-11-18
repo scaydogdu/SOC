@@ -231,8 +231,12 @@ class ModelTriad:
             for row in task.commitments.values()
         ]
 
+        observed = task.ledger_version
+
         def read_evidence() -> tuple[Brief, Mapping[str, CommitmentVersion]]:
+            nonlocal observed
             state = ledger.snapshot()
+            observed = state.ledger_version
             clauses = {clause.id: clause.text for clause in task.brief.clauses}
             clauses.update(state.brief)
             return Brief(
@@ -279,7 +283,6 @@ class ModelTriad:
                 checker=self.checker,
                 at=task.ledger_version,
             )
-        observed = task.ledger_version
         for decision in result.decisions:
             sid = decision.examination.difference.sentence_id
             if decision.term is not None:
@@ -288,7 +291,10 @@ class ModelTriad:
                     observed = max(observed, updated)
             ledger.record(
                 self.reviewer,
-                FlagResolved(flag_id=f"{task.chunk_id}/r{task.round_number}/{sid}"),
+                FlagResolved(
+                    flag_id=f"{task.chunk_id}/r{task.round_number}/{sid}",
+                    trace=decision.trace(),
+                ),
                 chunk_id=task.chunk_id,
             )
         return WorkerDraft(Draft(task.actor.agent, result.draft), observed)

@@ -1,4 +1,5 @@
 import asyncio
+import json
 from pathlib import Path
 
 from soc.enforce.checker import Checker
@@ -102,6 +103,20 @@ def test_ledger_runner_rebinds_resumes_repairs_and_gates_completed_episode(tmp_p
     first = asyncio.run(run())
     assert first.status == "budget_exhausted"
     assert list(first.outputs) == ["chunk-1", "chunk-2", "chunk-3"]
+    partial = {
+        row["chunk"]: row
+        for row in map(
+            json.loads, (run_dir / "final_findings.jsonl").read_text().splitlines()
+        )
+    }
+    assert set(partial) == {1, 2, 3}
+    assert partial[1]["accepted"]
+    assert not partial[2]["accepted"] and not partial[3]["accepted"]
+    assert "impact" in {item["rule"] for item in partial[2]["findings"]}
+    assert any(
+        item["rule"] == "term" and "erişim belirteci" in item["detail"]
+        for item in partial[2]["findings"]
+    )
     interrupted = False
     result = asyncio.run(run())
     assert result.status == "completed"

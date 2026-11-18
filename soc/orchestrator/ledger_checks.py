@@ -13,6 +13,7 @@ from soc.ledger.models import (
     DecisionCaptured,
     DecisionDeclared,
     Event,
+    GateDecision,
     GateFinding,
     GateOutcome,
     RepairPath,
@@ -130,6 +131,42 @@ def gate_chunks(
     path: RepairPath = "gate",
 ) -> tuple[Event, ...]:
     """Check built artifacts and log all verdicts against one current snapshot."""
+    return ledger.check_builds(
+        actor,
+        {key: number for key, (_, number) in chunks.items()},
+        path=path,
+        evaluate=_artifact_checks(
+            ledger,
+            {key: chunk for key, (chunk, _) in chunks.items()},
+            checker,
+            load_output,
+            normative,
+        ),
+    )
+
+
+def score_chunks(
+    ledger: Ledger,
+    chunks: Mapping[str, ChunkInput],
+    *,
+    checker: Checker,
+    load_output: Callable[[str], ChunkOutput],
+    normative: Sequence[NormativeRendering] = (),
+) -> dict[str, GateDecision]:
+    """Inspect the current builds of a partial run against the active brief."""
+    return ledger.inspect_builds(
+        dict.fromkeys(chunks),
+        evaluate=_artifact_checks(ledger, chunks, checker, load_output, normative),
+    )
+
+
+def _artifact_checks(
+    ledger: Ledger,
+    chunks: Mapping[str, ChunkInput],
+    checker: Checker,
+    load_output: Callable[[str], ChunkOutput],
+    normative: Sequence[NormativeRendering],
+) -> Callable[[str, Projection, ChunkBuilt], list[GateFinding]]:
     authority = ledger.authority
     if authority is None:
         raise ValueError("the translation gate requires an operation-scoped ledger")
@@ -139,7 +176,7 @@ def gate_chunks(
     def evaluate(
         chunk_id: str, state: Projection, build: ChunkBuilt
     ) -> list[GateFinding]:
-        chunk, _ = chunks[chunk_id]
+        chunk = chunks[chunk_id]
         try:
             if build.output_ref is None:
                 raise ValueError("missing output reference")
@@ -194,12 +231,7 @@ def gate_chunks(
             )
         ]
 
-    return ledger.check_builds(
-        actor,
-        {key: number for key, (_, number) in chunks.items()},
-        path=path,
-        evaluate=evaluate,
-    )
+    return evaluate
 
 
 def capture_worker_draft(

@@ -195,8 +195,24 @@ class FlagRaised(Record):
     sentence_id: Text | None = None
 
 
+class ResolutionBallot(Record):
+    voter: Text
+    choice: Literal["first", "second"] | None
+
+
+class ResolutionTrace(Record):
+    sentence_id: Text
+    decision_kind: Text
+    required: Consistency
+    consistency: Consistency
+    rendering: Text
+    approvers: list[Text]
+    ballots: list[ResolutionBallot]
+
+
 class FlagResolved(Record):
     flag_id: Text
+    trace: ResolutionTrace | None = None
 
 
 class DecisionDeclared(DecisionUse):
