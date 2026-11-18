@@ -85,6 +85,7 @@ async def run_ledger_episode(
     principal: PrincipalSimulator,
     checker: Checker,
     worker: LedgerWorker,
+    worker_fingerprint: str | None = None,
 ) -> LedgerRunResult:
     """Drive drafting, durable builds, scheduled events, and final acceptance."""
     episode = validate_runtime(load_runtime(episode_dir))
@@ -96,6 +97,7 @@ async def run_ledger_episode(
                 episode.model_dump(mode="json"),
                 principal.actor.model_dump(mode="json"),
                 principal.fingerprint,
+                *([worker_fingerprint] if worker_fingerprint is not None else []),
             ]
         )
     )
@@ -226,10 +228,8 @@ class _LedgerExecution:
             chunk,
             candidate.draft,
             checker=self.checker,
+            at=candidate.ledger_version,
         )
-        latest = self.ledger.snapshot()
-        if not task.ledger_version <= candidate.ledger_version <= latest.ledger_version:
-            raise ValueError("draft must identify the ledger snapshot it used")
         observed: dict[tuple[str, int, str], DecisionUse] = {}
         for event in evidence:
             entry: DecisionDeclared | DecisionCaptured

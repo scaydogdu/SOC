@@ -74,3 +74,34 @@ baseline: 26/26 branches (100.0%)
 ```
 
 M2 exit remains open. The SOC runner currently uses injected workers. The model-backed triad worker, reusable term rulings spanning later use sites, triad parity in the RAG arm, paired repair-precision reporting, and end-to-end live condition runs remain to be verified. The frozen episode preference mapping is recorded in [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md).
+
+## Model-backed SOC worker and reusable terms
+
+The SOC worker now sends structured requests through `ModelClient` for both drafts, cross-examination, open discussion, classification, and voting. Drafts carry decision-use manifests. The worker records open flags, supplies current evidence and revision hints during review, and sends principal questions through the shared answer cache. It preserves prepared prompts and restores recorded token usage when resuming an interrupted model run.
+
+For reusable terminology, a classification identifies the public scope key and a verbatim phrase from each draft. The selected sentence goes into the merged chunk. The selected phrase and the votes become a ledger ruling with sites derived from the public episode. Later workers receive the ruling, and their builds record where they used it. Coverage starts at the originating site and extends into matching later chunks until a scheduled principal approval takes ownership of that scope. The model-backed launcher uses the existing campaign's probe checks and spend guard.
+
+New scenarios and contract checks
+
+- `test_model_triad_records_reusable_term_and_resumes_through_shared_client` verifies a successful challenge, two-of-three vote, three later chunks using the ruling, a transient retry, an interrupted run, and exact cache replay.
+- `test_model_triads_support_remaining_form_modes` completes model-backed open-discussion and principal-only episodes with scripted provider responses.
+- `test_reusable_term_scope_stops_at_scheduled_principal_approval` exercises the boundary between reusable scopes and scheduled principal approvals.
+- `test_soc_launch_requires_effort_probe_before_opening_run_or_spend` exercises launch preflight.
+
+`./scripts/check` exited successfully.
+
+```text
+All checks passed!
+91 files already formatted
+Success: no issues found in 49 source files
+Contracts: 1 kept, 0 broken.
+255 passed, 2 deselected in 37.85s
+ledger: 342/370 branches (92.4%)
+episode: 50/52 branches (96.2%)
+segmenter: 67/68 branches (98.5%)
+providers: 150/160 branches (93.8%)
+checker: 66/68 branches (97.1%)
+baseline: 26/26 branches (100.0%)
+```
+
+M2 exit remains open. Fresh strict replay was verified with one chunk in flight. RAG triad parity, paired repair-precision reporting, and live runs in the SOC conditions remain pending. This execution environment has no configured provider credentials. The published campaign still records failed Gemini probes.

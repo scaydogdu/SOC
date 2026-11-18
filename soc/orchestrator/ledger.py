@@ -62,6 +62,37 @@ def record_triad_ruling(
     if authority is None or len(set(voters)) != 3 or authority.principal in voters:
         raise AuthorityError("triad rulings require distinct operation participants")
     difference = decision.examination.difference
+    alternatives = {"first": difference.first, "second": difference.second}
+    sites = {difference.sentence_id}
+    rendering = decision.rendering
+    if decision.term is not None:
+        term = decision.term
+        term.validate_difference(decision.examination)
+        sites = set(ledger.reusable_term_sites(difference.sentence_id, term.scope_key))
+        alternatives = {"first": term.first, "second": term.second}
+        rendering = decision.term_rendering or ""
+        if (
+            decision.kind != "term"
+            or ruling.scope != [term.scope_key]
+            or identity.subject is None
+            or identity.subject.key != term.scope_key
+            or not rendering
+            or (
+                decision.consistency == "SERIAL"
+                and decision.rendering
+                != term.merge_principal(decision.examination, rendering)
+            )
+            or (
+                decision.consistency != "SERIAL"
+                and rendering
+                != (
+                    term.first
+                    if decision.rendering == difference.first
+                    else term.second
+                )
+            )
+        ):
+            raise AuthorityError("ruling must match the approved term")
     if (
         identity.subject is None
         or (
@@ -69,8 +100,9 @@ def record_triad_ruling(
             and not (decision.provisional and decision.kind == "provisional")
         )
         or identity.operation != authority.operation
-        or set(ruling.sentence_ids or ()) != {difference.sentence_id}
-        or ruling.rendering != decision.rendering
+        or not sites
+        or set(ruling.sentence_ids or ()) != sites
+        or ruling.rendering != rendering
         or ruling.consistency != decision.consistency
         or decision.required != agreement.required(decision.kind, mode)
     ):
@@ -92,7 +124,6 @@ def record_triad_ruling(
         ):
             raise AuthorityError("decision does not match the verified ballot result")
         triad = list(voters)
-    alternatives = {"first": difference.first, "second": difference.second}
     ballots = tuple(
         RulingBallot(
             voter=voter,

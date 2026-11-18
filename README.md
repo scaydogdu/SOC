@@ -138,6 +138,21 @@ Keep the campaign directory to reuse its SQLite response cache and spend ledger.
 
 The trusted launcher passes an isolated YAML file containing an `answers` map from question text to answer text to `PrincipalSimulator`. Conditions for the same episode share its private SQLite answer cache. The simulator normalizes questions and logs the single answer delivered for each logical request. A trusted callback can answer questions absent from the key. Without a matching entry or callback answer, the simulator raises `UnansweredQuestion`. Keep the key and answer cache outside worker inputs.
 
+## Model-backed SOC runs
+
+`soc.orchestrator.model_triad.run_model_ledger_episode` uses the shared model client for two independent drafts, review, evidence responses, discussion and voting. Model drafts include a decision-use manifest. The three initial roles use distinct provider families and the successor uses the executor's family. For a reusable term, the reviewer identifies a source scope key and the exact term in each draft. The recorded votes approve the selected term, while the chunk output keeps the selected sentence. The ruling covers the originating site and matching later chunks up to any scheduled principal approval of that scope.
+
+The live launcher uses the existing campaign's probes, cache and spend guard. A SOC condition YAML has a `run` object with the `LedgerRunSpec` fields and a `team` object with `peer_model` and `reviewer_model`. Set `run.resolution` to `cross_examination`, `open_discussion` or `principal_only`. Supply the isolated principal key separately.
+
+```bash
+uv run --locked python -m soc.orchestrator.live soc \
+  --output /path/to/campaign --episode /path/to/public-episode \
+  --condition /path/to/condition.yaml --principal-key /path/to/principal.yaml \
+  --run-dir /path/to/recorded-run
+```
+
+Use `soc-replay` with the same campaign, condition, episode and principal key and a fresh run directory for cache-only replay. For deterministic replay from an empty ledger, configure `max_in_flight: 1`. Reopening the original run directory retains prepared call prompts, restores recorded token use and resumes saved work.
+
 ## Episode authoring
 
 Create a draft from an inclusive RFC section range. The generator makes one chunk per section, retains stable source IDs, and prints candidate scope keys. Add `--glossary FILE` to include known terms. Fill the brief, events, preferences, seeds, and affected sites in the draft before sealing it.

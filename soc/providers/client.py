@@ -135,9 +135,21 @@ class ModelClient:
         if any(route.family not in self._throttles for route in self._routes.values()):
             raise ValueError("every provider route requires a configured limit")
         self.tokens = initial_tokens
+        self._restored: dict[tuple[str, str], int] = {}
         self.run_dir = run_dir.resolve()
         self._log_path = self.run_dir / "calls.jsonl.gz"
         run_dir.mkdir(parents=True, exist_ok=True)
+
+    def route_family(self, model: str) -> str | None:
+        route = self._routes.get(model)
+        return None if route is None else route.family
+
+    def restore_recorded_usage(self) -> None:
+        """Restore a resumed run's cached calls once before new work."""
+        if self.tokens or self._restored:
+            raise ValueError("restoring usage requires a fresh model client")
+        self._restored = self.cache.call_usage(self.run_id)
+        self.tokens = sum(self._restored.values())
 
     async def generate(
         self, request: Request[Output], *, recover: bool = False
@@ -184,7 +196,8 @@ class ModelClient:
         if cached is not None:
             reply = cached
             source = "cache"
-            self.tokens += reply.input_tokens + reply.output_tokens
+            if (request.call_id, key) not in self._restored:
+                self.tokens += reply.input_tokens + reply.output_tokens
         elif self.mode is Mode.REPLAY:
             reply = RecordedReply(outcome=Outcome.CACHE_MISS, latency_seconds=0)
             self._log(request, key, price, reply, "cache", attempt=None)

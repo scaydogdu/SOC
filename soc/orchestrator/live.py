@@ -17,9 +17,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from soc.baseline.memory import RAGMemory
 from soc.baseline.retrieval import BGEM3Embedder, Embedder
 from soc.enforce.checker import Checker
+from soc.ledger.models import Actor
 from soc.orchestrator.journal import run_lock
+from soc.orchestrator.ledger_runner import LedgerRunResult, LedgerRunSpec
+from soc.orchestrator.model_triad import ModelTeam, run_model_ledger_episode
 from soc.orchestrator.prompts import digest, json_text
 from soc.orchestrator.runner import ExperimentSettings, RunSpec, run_episode
+from soc.principal.simulator import PrincipalSimulator
 from soc.providers.anthropic import AnthropicProvider
 from soc.providers.cache import ResponseCache
 from soc.providers.client import (
@@ -43,6 +47,7 @@ from soc.providers.models import (
 )
 from soc.providers.openai import OpenAIProvider
 from soc.providers.spend import SpendGuard, SpendRate
+from soc.triad.agreement import AgreementRules
 
 type Family = Literal["anthropic", "openai", "google"]
 type Effort = Literal["low", "high"]
@@ -441,6 +446,66 @@ async def run_live_toy(
     return True
 
 
+class SOCCondition(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    run: LedgerRunSpec
+    team: ModelTeam
+
+
+async def run_live_soc(
+    config: LiveConfig,
+    root: Path,
+    episode: Path,
+    run_dir: Path,
+    *,
+    condition: SOCCondition,
+    answer_key: Path,
+    agreement: AgreementRules,
+    routes: Mapping[str, Route] | None,
+) -> LedgerRunResult:
+    """Use the existing campaign preflight, response cache, and spending guard."""
+    spec, team = condition.run, condition.team
+    if routes is not None:
+        require_probes(
+            config,
+            root,
+            routes,
+            {
+                spec.initial_model,
+                spec.successor_model,
+                team.peer_model,
+                team.reviewer_model,
+            },
+            spec.effort,
+        )
+    principal = PrincipalSimulator(
+        answer_key,
+        root / "principal.sqlite",
+        episode_id=spec.episode_id,
+        actor=Actor(agent="principal", model="simulator", role="principal"),
+    )
+    client = campaign_client(
+        config,
+        root,
+        run_dir,
+        spec.run_id,
+        routes=routes,
+        guard=campaign_spend(config, root) if routes is not None else None,
+    )
+    return await run_model_ledger_episode(
+        episode,
+        run_dir,
+        spec=spec,
+        experiment=config.experiment,
+        principal=principal,
+        checker=Checker(),
+        client=client,
+        team=team,
+        agreement=agreement,
+    )
+
+
 def live_routes(config: LiveConfig, http: httpx.AsyncClient) -> dict[str, Route]:
     available = available_families()
     adapters = {
@@ -463,6 +528,26 @@ async def _main(args: argparse.Namespace) -> int:
     config = LiveConfig.model_validate(
         yaml.safe_load(args.config.read_text(encoding="utf-8"))
     )
+    if args.command in {"soc", "soc-replay"}:
+        condition = SOCCondition.model_validate(
+            yaml.safe_load(args.condition.read_text(encoding="utf-8"))
+        )
+        agreement = AgreementRules.model_validate(
+            yaml.safe_load(args.agreement.read_text(encoding="utf-8"))
+        )
+        async with httpx.AsyncClient(timeout=60) as http:
+            result = await run_live_soc(
+                config,
+                args.output,
+                args.episode,
+                args.run_dir,
+                condition=condition,
+                answer_key=args.principal_key,
+                agreement=agreement,
+                routes=live_routes(config, http) if args.command == "soc" else None,
+            )
+        print(f"{result.status}: {len(result.outputs)} chunks")
+        return int(result.status != "completed")
     if args.command == "replay":
         okay = await run_live_toy(
             config,
@@ -501,14 +586,28 @@ async def _main(args: argparse.Namespace) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("probe", "toy", "replay"))
+    parser.add_argument(
+        "command", choices=("probe", "toy", "replay", "soc", "soc-replay")
+    )
     parser.add_argument("--config", type=Path, default=Path("config/m1-live.yaml"))
     parser.add_argument(
         "--output", type=Path, required=True, help="Shared M1 campaign directory."
     )
     parser.add_argument("--episode", type=Path, default=Path("data/episodes/toy"))
     parser.add_argument("--code-commit")
+    parser.add_argument("--condition", type=Path, help="SOC run and team YAML.")
+    parser.add_argument("--run-dir", type=Path, help="SOC output directory.")
+    parser.add_argument(
+        "--principal-key", type=Path, help="Isolated SOC question-to-answer key."
+    )
+    parser.add_argument(
+        "--agreement", type=Path, default=Path("config/m2-agreement.yaml")
+    )
     args = parser.parse_args()
+    if args.command in {"soc", "soc-replay"} and not (
+        args.condition and args.run_dir and args.principal_key
+    ):
+        parser.error("SOC commands require --condition, --run-dir and --principal-key")
     if args.code_commit is None and args.command == "replay":
         recorded = args.output / "toy" / "run.json"
         args.code_commit = json.loads(recorded.read_text(encoding="utf-8"))[

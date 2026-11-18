@@ -280,3 +280,55 @@ def test_shipped_campaign_covers_the_roster_and_can_reserve_any_model(tmp_path):
                 outcome=Outcome.OK, input_tokens=1, output_tokens=1, usage_reported=True
             ),
         )
+
+
+def test_soc_launch_requires_effort_probe_before_opening_run_or_spend(tmp_path):
+    from soc.orchestrator.live import SOCCondition, run_live_soc
+    from soc.triad.agreement import AgreementRules
+
+    class NoCalls:
+        async def generate(self, _request):
+            pytest.fail("the launcher must validate probes before provider calls")
+
+    config = LiveConfig.model_validate(
+        yaml.safe_load((ROOT / "config/m1-live.yaml").read_text())
+    )
+    condition = SOCCondition.model_validate(
+        {
+            "run": {
+                "run_id": "guarded-soc",
+                "condition": "cross-examination",
+                "episode_id": "toy",
+                "initial_model": config.toy.initial_model,
+                "successor_model": config.toy.successor_model,
+                "effort": "low",
+                "code_commit": "test",
+            },
+            "team": {
+                "peer_model": "claude-sonnet-5-5",
+                "reviewer_model": "gemini-3.8-flash",
+            },
+        }
+    )
+    agreement = AgreementRules.model_validate(
+        yaml.safe_load((ROOT / "config/m2-agreement.yaml").read_text())
+    )
+    root = tmp_path / "campaign"
+    run_dir = tmp_path / "run"
+    routes = {
+        model: Route(entry.family, NoCalls()) for model, entry in config.models.items()
+    }
+    with pytest.raises(ValueError, match="roster probe"):
+        asyncio.run(
+            run_live_soc(
+                config,
+                root,
+                TOY,
+                run_dir,
+                condition=condition,
+                answer_key=tmp_path / "unused.yaml",
+                agreement=agreement,
+                routes=routes,
+            )
+        )
+    assert not root.exists() and not run_dir.exists()

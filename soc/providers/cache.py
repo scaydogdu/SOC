@@ -53,6 +53,17 @@ class ResponseCache:
             ).fetchone()
         return None if row is None else RecordedReply.model_validate_json(row[0])
 
+    def call_usage(self, run_id: str) -> dict[tuple[str, str], int]:
+        with closing(sqlite3.connect(self.path)) as db:
+            rows = db.execute(
+                "SELECT call_id, key, reply FROM calls WHERE run_id = ?", (run_id,)
+            )
+            usage = {}
+            for call_id, key, data in rows:
+                reply = RecordedReply.model_validate_json(data)
+                usage[call_id, key] = reply.input_tokens + reply.output_tokens
+            return usage
+
     def write(self, run_id: str, call_id: str, key: str, reply: RecordedReply) -> None:
         data = reply.model_dump_json()
         with closing(sqlite3.connect(self.path)) as db, db:

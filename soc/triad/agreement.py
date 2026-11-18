@@ -61,6 +61,40 @@ class PrincipalResolution(Record):
     rendering: Text
 
 
+class TermTarget(Record):
+    """One reusable scope key with a verbatim phrase from each draft."""
+
+    scope_key: Text
+    first: Text
+    second: Text
+
+    def validate_difference(self, examination: Examination) -> None:
+        difference = examination.difference
+        if (
+            self.first == self.second
+            or difference.first.count(self.first) != 1
+            or difference.second.count(self.second) != 1
+        ):
+            raise ValueError(
+                "term choices must be distinct and occur once in their drafts"
+            )
+
+    def merge_principal(self, examination: Examination, rendering: str) -> str:
+        return examination.difference.first.replace(self.first, rendering, 1)
+
+
+class Classification(Record):
+    kind: DecisionType
+    term: TermTarget | None = None
+    question: Text | None = None
+
+    @model_validator(mode="after")
+    def check_term(self) -> Self:
+        if self.term is not None and self.kind != "term":
+            raise ValueError("only a terminology decision may define a term target")
+        return self
+
+
 @dataclass(frozen=True)
 class Decision:
     examination: Examination
@@ -70,6 +104,8 @@ class Decision:
     rendering: str
     approvals: tuple[str, ...]
     ballots: tuple[tuple[str, Ballot], ...]
+    term: TermTarget | None = None
+    term_rendering: str | None = None
 
     @property
     def provisional(self) -> bool:
@@ -82,7 +118,7 @@ class TriadResult:
     decisions: tuple[Decision, ...]
 
 
-type Classify = Callable[[Examination], Awaitable[DecisionType]]
+type Classify = Callable[[Examination], Awaitable[DecisionType | Classification]]
 type Vote = Callable[[str, Examination, DecisionType], Awaitable[Ballot]]
 type Settle = Callable[[str, Examination, DecisionType], Awaitable[PrincipalResolution]]
 type Discuss = Callable[[str, Examination], Awaitable[str | None]]
@@ -132,17 +168,27 @@ async def _decide(
     examination: Examination,
     kind: DecisionType,
     required: Consistency,
+    term: TermTarget | None,
     voters: tuple[str, str, str],
     principal: str,
     vote: Vote,
     settle: Settle,
 ) -> Decision:
     ballots: list[tuple[str, Ballot]] = []
+    if term is not None:
+        term.validate_difference(examination)
     if required != "SERIAL":
         for voter in voters:
             ballots.append((voter, await vote(voter, examination, kind)))
         if approved := approved_rendering(examination, required, ballots):
             rendering, approvals = approved
+            term_rendering = None
+            if term is not None:
+                term_rendering = (
+                    term.first
+                    if rendering == examination.difference.first
+                    else term.second
+                )
             return Decision(
                 examination,
                 kind,
@@ -151,6 +197,8 @@ async def _decide(
                 rendering,
                 approvals,
                 tuple(ballots),
+                term,
+                term_rendering,
             )
 
     answer = await settle(principal, examination, kind)
@@ -159,9 +207,13 @@ async def _decide(
         kind,
         required,
         "SERIAL",
-        answer.rendering,
+        answer.rendering
+        if term is None
+        else term.merge_principal(examination, answer.rendering),
         (principal,),
         tuple(ballots),
+        term,
+        answer.rendering if term is not None else None,
     )
 
 
@@ -218,11 +270,14 @@ async def run_triad(
     decisions = []
     renderings = {row.sentence_id: row.text for row in first.output.sentences}
     for examination in examinations:
-        kind = await classify(examination)
+        classified = await classify(examination)
+        kind = classified.kind if isinstance(classified, Classification) else classified
+        term = classified.term if isinstance(classified, Classification) else None
         decision = await _decide(
             examination,
             kind,
             agreement.required(kind, mode),
+            term,
             voters,
             principal,
             vote,
