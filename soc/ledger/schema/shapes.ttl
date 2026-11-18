@@ -9,6 +9,14 @@ soc:LedgerEventShape a sh:NodeShape ;
   sh:property [ sh:path soc:actor ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
   sh:property [ sh:path soc:eventType ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] .
 
+soc:ChunkBuildShape a sh:NodeShape ;
+  sh:targetClass soc:ChunkBuild ;
+  sh:property [ sh:path soc:chunkId ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:pattern "[^\\s]" ] ;
+  sh:property [ sh:path soc:buildNumber ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:integer ; sh:minInclusive 1 ] ;
+  sh:property [ sh:path soc:outputRef ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:pattern "[^\\s]" ] ;
+  sh:property [ sh:path soc:ledgerSnapshot ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:integer ; sh:minInclusive 0 ] ;
+  sh:property [ sh:path prov:used ; sh:class soc:CommitmentVersion ] .
+
 soc:CommitmentOwnerShape a sh:NodeShape ;
   sh:targetClass soc:CommitmentVersion ;
   sh:property [ sh:path (soc:commitment soc:owner) ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] .
@@ -16,14 +24,24 @@ soc:CommitmentOwnerShape a sh:NodeShape ;
 soc:CommitmentShape a sh:NodeShape ;
   sh:targetClass soc:Commitment ;
   sh:property [ sh:path soc:operation ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
+  sh:property [ sh:path soc:authorityClass ; sh:maxCount 1 ; sh:in ("principal" "triad") ] ;
   sh:property [ sh:path soc:debtor ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
   sh:property [ sh:path soc:creditor ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] .
+
+soc:DecisionSubjectShape a sh:NodeShape ;
+  sh:targetSubjectsOf soc:decisionKind, soc:decisionKey ;
+  sh:class soc:Commitment ;
+  sh:property [ sh:path soc:decisionKind ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:pattern "[^\\s]" ] ;
+  sh:property [ sh:path soc:decisionKey ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:pattern "[^\\s]" ] .
 
 soc:VersionShape a sh:NodeShape ;
   sh:targetClass soc:CommitmentVersion ;
   sh:property [ sh:path soc:commitment ; sh:minCount 1 ; sh:maxCount 1 ; sh:class soc:Commitment ] ;
   sh:property [ sh:path soc:version ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:integer ; sh:minInclusive 1 ] ;
   sh:property [ sh:path soc:scope ; sh:minCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+  sh:property [ sh:path soc:useSite ; sh:datatype xsd:string ; sh:pattern "[^\\s]" ] ;
+  sh:property [ sh:path soc:briefCitation ; sh:class soc:BriefCitation ] ;
+  sh:property [ sh:path soc:approver ; sh:nodeKind sh:IRI ] ;
   sh:property [ sh:path soc:rendering ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
   sh:property [ sh:path soc:rationale ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
   sh:property [ sh:path soc:proposer ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
@@ -33,6 +51,11 @@ soc:VersionVocabularyShape a sh:NodeShape ;
   sh:targetClass soc:CommitmentVersion ;
   sh:property [ sh:path soc:state ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("proposed" "provisional" "ratified" "contested" "amended" "superseded" "revoked") ] ;
   sh:property [ sh:path soc:consistency ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("ONE" "QUORUM" "ALL" "SERIAL") ] .
+
+soc:CommitmentRolesShape a sh:NodeShape ;
+  sh:targetClass soc:CommitmentVersion ;
+  sh:property [ sh:path soc:antecedent ; sh:minCount 1 ; sh:datatype xsd:string ; sh:equals soc:scope ] ;
+  sh:property [ sh:path soc:consequent ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:equals soc:rendering ] .
 
 soc:StrengthShape a sh:NodeShape ;
   sh:targetClass soc:CommitmentVersion ;
@@ -76,15 +99,21 @@ soc:PrincipalBriefChangeShape a sh:NodeShape ;
   sh:targetClass soc:BriefChange ;
   sh:property [ sh:path (soc:actor soc:role) ; sh:minCount 1 ; sh:maxCount 1 ; sh:hasValue "principal" ] .
 
+soc:BriefCitationShape a sh:NodeShape ;
+  sh:targetClass soc:BriefCitation ;
+  sh:property [ sh:path soc:clauseId ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+  sh:property [ sh:path soc:clauseText ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ] ;
+  sh:property [ sh:path soc:validFrom ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:integer ; sh:minInclusive 0 ] .
+
 soc:RevisionLinkShape a sh:NodeShape ;
   sh:targetClass soc:RevisionEvent ;
-  sh:property [ sh:path soc:antecedent ; sh:minCount 1 ; sh:maxCount 1 ; sh:class soc:CommitmentVersion ] ;
-  sh:property [ sh:path soc:consequent ; sh:minCount 1 ; sh:maxCount 1 ; sh:class soc:CommitmentVersion ] ;
-  sh:property [ sh:path (soc:consequent prov:wasRevisionOf) ; sh:equals soc:antecedent ] .
+  sh:property [ sh:path prov:used ; sh:minCount 1 ; sh:maxCount 1 ; sh:class soc:CommitmentVersion ; sh:disjoint prov:generated ] ;
+  sh:property [ sh:path prov:generated ; sh:minCount 1 ; sh:maxCount 1 ; sh:class soc:CommitmentVersion ] ;
+  sh:property [ sh:path (prov:generated prov:wasRevisionOf) ; sh:equals prov:used ] .
 
 soc:RatificationShape a sh:NodeShape ;
   sh:targetClass soc:Ratification ;
-  sh:property [ sh:path soc:consequent ; sh:minCount 1 ; sh:maxCount 1 ; sh:class soc:CommitmentVersion ] ;
+  sh:property [ sh:path prov:generated ; sh:minCount 1 ; sh:maxCount 1 ; sh:class soc:CommitmentVersion ] ;
   sh:property [ sh:path soc:ratifier ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
   sh:property [ sh:path soc:consistency ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ("ONE" "QUORUM" "ALL" "SERIAL") ] ;
   sh:property [ sh:path soc:evidence ; sh:minCount 1 ] .

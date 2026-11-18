@@ -15,11 +15,26 @@ CREATE TABLE IF NOT EXISTS events (
     hash TEXT NOT NULL,
     UNIQUE (commitment_id, new_version),
     CHECK (
-        (type IN ('Ratified', 'Revised', 'Superseded', 'Revoked')
+        (type IN ('Provisional', 'Ratified', 'Revised', 'Superseded', 'Revoked')
             AND commitment_id IS NOT NULL AND base_version IS NOT NULL
             AND new_version IS NOT NULL AND new_version = base_version + 1)
-        OR (type NOT IN ('Ratified', 'Revised', 'Superseded', 'Revoked') AND new_version IS NULL)
+        OR (type NOT IN ('Provisional', 'Ratified', 'Revised', 'Superseded', 'Revoked') AND new_version IS NULL)
     )
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS chunk_build_order
+ON events (chunk_id, seq DESC) WHERE type = 'ChunkBuilt';
+
+CREATE TABLE IF NOT EXISTS public_episode (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    run_id TEXT NOT NULL,
+    sha256 TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS operation_authority (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    operation TEXT NOT NULL,
+    principal TEXT NOT NULL
 ) STRICT;
 
 CREATE TRIGGER IF NOT EXISTS event_no_update

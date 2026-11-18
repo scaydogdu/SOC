@@ -1,0 +1,13 @@
+[
+  {
+    "@id": "urn:event:chunk-build",
+    "@type": ["prov:Activity", "LedgerEvent", "ChunkBuild"],
+    "actor": "urn:agent:executor",
+    "eventType": "ChunkBuilt",
+    "sequence": 1,
+    "chunkId": "chunk-1",
+    "buildNumber": 0,
+    "outputRef": "outputs/chunk-1/build-1.json",
+    "ledgerSnapshot": 0
+  }
+]

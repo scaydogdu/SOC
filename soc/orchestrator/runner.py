@@ -9,7 +9,7 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 from soc.enforce.checker import Checker, Finding, NormativeRendering
-from soc.episode import Brief, Episode, NonBlank, load_runtime
+from soc.episode import Brief, Episode, NonBlank, load_runtime, validate_runtime
 from soc.memory import ChunkInput, ChunkOutput, DecisionChange, Memory, PromptContext
 from soc.orchestrator.journal import Attempt, Journal, open_journal
 from soc.orchestrator.prompts import (
@@ -69,30 +69,10 @@ class RunResult:
 
 def _chunks(episode: Episode) -> tuple[ChunkInput, ...]:
     source = {sentence.id: sentence for sentence in episode.source}
-    if len(source) != len(episode.source):
-        raise ValueError("duplicate source sentence ID")
-    result = []
-    for position, chunk in enumerate(episode.events.chunks, 1):
-        if not chunk.sentence_ids or len(set(chunk.sentence_ids)) != len(
-            chunk.sentence_ids
-        ):
-            raise ValueError(f"chunk {position} needs unique source sentence IDs")
-        try:
-            result.append(
-                ChunkInput(position, tuple(source[key] for key in chunk.sentence_ids))
-            )
-        except KeyError as exc:
-            raise ValueError(
-                f"unknown source sentence in chunk {position}: {exc}"
-            ) from exc
-    boundaries = (
-        episode.events.executor_change_after,
-        episode.events.brief_change.chunk,
-        *(approval.chunk for approval in episode.events.approvals),
+    return tuple(
+        ChunkInput(position, tuple(source[key] for key in chunk.sentence_ids))
+        for position, chunk in enumerate(episode.events.chunks, 1)
     )
-    if any(position > len(result) for position in boundaries):
-        raise ValueError("episode event lies outside the chunk schedule")
-    return tuple(result)
 
 
 def _write(directory: Path, name: str, content: str) -> None:
@@ -124,7 +104,7 @@ async def run_episode(
         or client.run_dir != run_dir.resolve()
     ):
         raise ValueError("runner requires a fresh model client for this run ID")
-    episode = load_runtime(episode_dir)
+    episode = validate_runtime(load_runtime(episode_dir))
     chunks = _chunks(episode)
     prompts = TranslationPrompts(prompts_dir)
     manifest = {

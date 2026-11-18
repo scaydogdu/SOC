@@ -11,9 +11,10 @@
     "actor": {"@type": "@id"},
     "proposer": {"@type": "@id"},
     "ratifier": {"@type": "@id"},
-    "antecedent": {"@type": "@id"},
-    "consequent": {"@type": "@id"},
+    "approver": {"@type": "@id"},
     "executor": {"@type": "@id"},
+    "used": {"@id": "prov:used", "@type": "@id"},
+    "generated": {"@id": "prov:generated", "@type": "@id"},
     "wasRevisionOf": {"@id": "prov:wasRevisionOf", "@type": "@id"},
     "actedOnBehalfOf": {"@id": "prov:actedOnBehalfOf", "@type": "@id"}
   }

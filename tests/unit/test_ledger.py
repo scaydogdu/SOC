@@ -1,13 +1,21 @@
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from threading import Barrier
 
 import pytest
 from pydantic import ValidationError
 
+from soc.episode import load_runtime
 from soc.ledger.models import (
     BriefChanged,
     ChunkBuilt,
+    DecisionSubject,
     ExecutorRebound,
+    Record,
     Ruling,
+    RulingConflict,
+    VersionChange,
     VersionRef,
 )
 from soc.ledger.schema.validation import ShapeError
@@ -63,6 +71,7 @@ def test_monotonic_reads_usage_and_rebind(tmp_path):
             ledger_version=1,
             uses=[VersionRef(commitment_id=IDENTITY.id, version=1)],
             decisions={IDENTITY.id: RULING.rendering},
+            output_ref="outputs/chunk1/build-1.json",
         )
         with pytest.raises(ValueError, match="requires an ID"):
             ledger.record(OWNER, chunk)
@@ -71,7 +80,7 @@ def test_monotonic_reads_usage_and_rebind(tmp_path):
                 OWNER, chunk.model_copy(update={"ledger_version": 99}), chunk_id="bad"
             )
         ledger.record(OWNER, chunk, chunk_id="chunk1")
-        with pytest.raises(ValueError, match="already built"):
+        with pytest.raises(ValueError, match="expected 0, found 1"):
             ledger.record(OWNER, chunk, chunk_id="chunk1")
         rebind = ExecutorRebound(old_model="old", new_model="new", ledger_version=2)
         before = ledger.snapshot()
@@ -102,6 +111,217 @@ def test_monotonic_reads_usage_and_rebind(tmp_path):
             )
         ledger.record(OWNER, chunk, chunk_id="historical")
         assert ledger.snapshot() == ledger.rebuild()
+
+
+def test_chunk_rebuild_replaces_current_usage_and_preserves_history(tmp_path):
+    path = tmp_path / "rebuild.sqlite"
+    first = ChunkBuilt(
+        ledger_version=1,
+        uses=[VersionRef(commitment_id=IDENTITY.id, version=1)],
+        decisions={IDENTITY.id: RULING.rendering},
+        output_ref="outputs/chunk1/build-1.json",
+    )
+    updated_ruling = RULING.model_copy(update={"rendering": "updated"})
+    second = ChunkBuilt(
+        ledger_version=3,
+        uses=[VersionRef(commitment_id=IDENTITY.id, version=2)],
+        decisions={IDENTITY.id: updated_ruling.rendering},
+        build_number=2,
+        output_ref="outputs/chunk1/build-2.json",
+    )
+    with Ledger(path, "toy") as ledger:
+        ledger.ratify(OWNER, IDENTITY, 0, RULING, "initial")
+        ledger.record(OWNER, first, chunk_id="chunk1")
+        ledger.transition("Revised", OWNER, IDENTITY.id, 1, updated_ruling, "update")
+        before = ledger.snapshot()
+        with pytest.raises(ValueError, match="advance by one"):
+            ledger.record(OWNER, first, chunk_id="chunk1", base_build=1)
+        with pytest.raises(ValueError, match="requires an output reference"):
+            ledger.record(
+                OWNER,
+                second.model_copy(update={"output_ref": None}),
+                chunk_id="chunk1",
+                base_build=1,
+            )
+        with pytest.raises(ValueError, match="inactive"):
+            ledger.record(
+                OWNER,
+                second.model_copy(update={"uses": first.uses}),
+                chunk_id="chunk1",
+                base_build=1,
+            )
+        assert ledger.snapshot() == before
+        event = ledger.record(OWNER, second, chunk_id="chunk1", base_build=1)
+        assert event.payload["@graph"][0]["buildNumber"] == 2
+        assert len(event.payload["@graph"][0]["used"]) == 1
+        assert ledger.snapshot().usage == {(IDENTITY.id, 2): ["chunk1"]}
+
+    with Ledger(path, "toy") as ledger:
+        view = ledger.snapshot()
+        assert view.chunks == {"chunk1": second}
+        assert view.chunk_history == {"chunk1": [first, second]}
+        assert view.usage == {(IDENTITY.id, 2): ["chunk1"]}
+        assert view == ledger.rebuild()
+        assert ledger.verify() is None
+
+
+def test_two_repairs_cannot_replace_the_same_legacy_build(tmp_path):
+    class LegacyChunk(Record):
+        ledger_version: int = 0
+        uses: list[VersionRef] = []
+        decisions: dict[str, str] = {}
+
+    path = tmp_path / "race.sqlite"
+    with Ledger(path, "toy") as ledger, ledger._db:
+        ledger._db.execute("BEGIN IMMEDIATE")
+        legacy = ledger._append("ChunkBuilt", OWNER, LegacyChunk(), chunk_id="chunk1")
+
+    start = Barrier(2)
+
+    def repair(output_ref):
+        with Ledger(path, "toy") as ledger:
+            previous = ledger.snapshot().chunks["chunk1"]
+            assert previous.build_number == 1 and previous.output_ref is None
+            build = ChunkBuilt(
+                ledger_version=1,
+                uses=[],
+                decisions={},
+                build_number=2,
+                output_ref=output_ref,
+            )
+            start.wait(timeout=10)
+            try:
+                ledger.record(OWNER, build, chunk_id="chunk1", base_build=1)
+            except ValueError as error:
+                assert str(error) == "chunk build changed: expected 1, found 2"
+                return None
+            return build
+
+    with ThreadPoolExecutor(2) as workers:
+        accepted = [
+            build for build in workers.map(repair, ["repair-a", "repair-b"]) if build
+        ]
+    assert len(accepted) == 1
+    with Ledger(path, "toy") as ledger:
+        history = ledger.snapshot().chunk_history["chunk1"]
+        assert history[0].output_ref is None and history[1:] == accepted
+        assert ledger._events()[0] == legacy
+        assert ledger.verify() is None
+
+
+def test_rulings_conflict_by_subject_and_site_within_the_operation(tmp_path):
+    first_site, second_site = "9999-1-s01", "9999-2-s01"
+    subject = DecisionSubject(kind="term", key="access token")
+    identity = IDENTITY.model_copy(update={"subject": subject})
+    broad = RULING.model_copy(update={"sentence_ids": [first_site, second_site]})
+    first = broad.model_copy(update={"sentence_ids": [first_site]})
+    second = broad.model_copy(update={"sentence_ids": [second_site]})
+    alternate = first.model_copy(update={"scope": ["client"], "rendering": "alternate"})
+    episode = load_runtime(Path("data/episodes/toy"))
+    with Ledger(tmp_path / "rulings.sqlite", "toy", episode=episode) as ledger:
+        with pytest.raises(ValueError, match="requires sentence use sites"):
+            ledger.ratify(OWNER, identity, 0, RULING, "missing sites")
+        with pytest.raises(ValueError, match="outside the ruling's scope"):
+            ledger.ratify(
+                OWNER,
+                identity,
+                0,
+                first.model_copy(update={"sentence_ids": ["9999-1-s02"]}),
+                "inapplicable site",
+            )
+        assert ledger.ratify(OWNER, identity, 0, first, "first").type == "Ratified"
+        disjoint = identity.model_copy(update={"id": "disjoint"})
+        assert ledger.ratify(OWNER, disjoint, 0, second, "exception").type == "Ratified"
+        numeric = identity.model_copy(
+            update={
+                "id": "numeric",
+                "subject": DecisionSubject(kind="numeric", key=subject.key),
+            }
+        )
+        assert (
+            ledger.ratify(OWNER, numeric, 0, first, "another kind").type == "Ratified"
+        )
+        other_operation = identity.model_copy(
+            update={"id": "separate", "operation": "separate"}
+        )
+        assert (
+            ledger.ratify(
+                OWNER, other_operation, 0, alternate, "another operation"
+            ).type
+            == "Ratified"
+        )
+
+        candidate = identity.model_copy(update={"id": "candidate"})
+        blocked = ledger.ratify(
+            OWNER,
+            candidate,
+            0,
+            alternate.model_copy(update={"sentence_ids": [second_site, first_site]}),
+            "same sites using a different scope key",
+        )
+        assert blocked.type == "ConflictRaised" and blocked.new_version is None
+        conflict = RulingConflict.model_validate(blocked.payload["data"])
+        assert conflict.candidate_id == candidate.id and conflict.subject == subject
+        assert [
+            (item.commitment_id, item.version, item.sentence_ids)
+            for item in conflict.overlaps
+        ] == [(identity.id, 1, [first_site]), (disjoint.id, 1, [second_site])]
+        assert candidate.id not in ledger.snapshot().current
+        assert (
+            ledger.transition("Revised", OWNER, identity.id, 1, broad, "widen").type
+            == "ConflictRaised"
+        )
+        assert ledger.snapshot().current[identity.id].version == 1
+        assert set(
+            ledger.reader().in_scope("access token", sentence_id=second_site)
+        ) == {disjoint.id}
+        assert ledger.verify() is None
+
+
+def test_concurrent_rulings_leave_one_binding_then_can_resolve(tmp_path):
+    path = tmp_path / "overlap.sqlite"
+    subject = DecisionSubject(kind="term", key="access token")
+    identities = [
+        IDENTITY.model_copy(update={"id": key, "subject": subject})
+        for key in ("a", "b")
+    ]
+    first_site, second_site = "9999-1-s01", "9999-2-s01"
+    ruling = RULING.model_copy(update={"sentence_ids": [first_site, second_site]})
+    start = Barrier(2)
+    with Ledger(path, "toy"):
+        pass
+
+    def attempt(identity):
+        with Ledger(path, "toy") as ledger:
+            start.wait(timeout=10)
+            return ledger.ratify(OWNER, identity, 0, ruling, "concurrent")
+
+    with ThreadPoolExecutor(2) as workers:
+        events = list(workers.map(attempt, identities))
+    assert sorted(event.type for event in events) == ["ConflictRaised", "Ratified"]
+    with Ledger(path, "toy") as ledger:
+        (winner,) = ledger.snapshot().current
+        loser = next(identity for identity in identities if identity.id != winner)
+        narrowed = ruling.model_copy(update={"sentence_ids": [first_site]})
+        ledger.transition("Revised", OWNER, winner, 1, narrowed, "restrict the scope")
+        assert not ledger.is_tombstoned(
+            ruling.rendering, "access token", sentence_id=first_site
+        )
+        assert ledger.is_tombstoned(
+            ruling.rendering, "access token", sentence_id=second_site
+        )
+        replacement = ruling.model_copy(
+            update={"sentence_ids": [second_site], "rendering": "new"}
+        )
+        assert (
+            ledger.ratify(OWNER, loser, 0, replacement, "disjoint exception").type
+            == "Ratified"
+        )
+        assert set(
+            ledger.reader().in_scope("access token", sentence_id=second_site)
+        ) == {loser.id}
+        assert ledger.rebuild() == ledger.snapshot()
+        assert ledger.verify() is None
 
 
 def test_sql_guards_and_first_altered_byte(tmp_path):
@@ -228,10 +448,37 @@ def test_executor_epoch_closes_without_touching_rulings(tmp_path):
         assert ledger.snapshot().versions == before
 
 
-def test_episode_citations_are_checked_inside_write(tmp_path):
-    from pathlib import Path
+def test_revision_graph_keeps_commitment_roles_and_prov_links(tmp_path):
+    revised_ruling = RULING.model_copy(
+        update={"scope": ["access token", "session"], "rendering": "replacement"}
+    )
+    with Ledger(tmp_path / "revision.sqlite", "toy") as ledger:
+        initial = ledger.ratify(OWNER, IDENTITY, 0, RULING, "initial")
+        revision = ledger.transition(
+            "Revised", OWNER, IDENTITY.id, 1, revised_ruling, "new ruling"
+        )
+        third = ledger.ratify(OWNER, IDENTITY, 2, revised_ruling, "ratify again")
 
-    from soc.episode import load_runtime
+    initial_activity = initial.payload["@graph"][0]
+    activity = revision.payload["@graph"][0]
+    assert initial_activity["generated"] == activity["used"]
+    assert "used" not in initial_activity
+    assert "antecedent" not in activity and "consequent" not in activity
+    new_id = activity["generated"]
+    new_version = next(
+        node for node in revision.payload["@graph"] if node["@id"] == new_id
+    )
+    assert new_version["antecedent"] == revised_ruling.scope
+    assert new_version["consequent"] == revised_ruling.rendering
+    assert new_version["wasRevisionOf"] == activity["used"]
+    assert third.payload["@graph"][0]["used"] == new_id
+    closed_version = next(
+        node for node in third.payload["@graph"] if node["@id"] == new_id
+    )
+    assert closed_version["wasRevisionOf"] == activity["used"]
+
+
+def test_episode_citations_are_checked_inside_write(tmp_path):
     from soc.ledger.models import Quote
 
     episode = load_runtime(Path("data/episodes/toy"))
@@ -264,13 +511,45 @@ def test_episode_citations_are_checked_inside_write(tmp_path):
                     "invalid",
                 )
         assert ledger.snapshot().ledger_version == 0
-        ledger.ratify(OWNER, IDENTITY, 0, RULING, "initial")
-        ledger.record(OWNER, BriefChanged(clauses={"B2": "later clause"}))
-        evidence = RULING.model_copy(update={"evidence": ["brief:B2", "commitment:D1"]})
-        ledger.ratify(
+        initial = ledger.ratify(OWNER, IDENTITY, 0, RULING, "initial")
+        change = ledger.record(
+            OWNER,
+            BriefChanged(clauses={"B1": "replacement clause", "B2": "later clause"}),
+        )
+        evidence = RULING.model_copy(
+            update={"evidence": ["brief:B1", "brief:B2", "commitment:D1"]}
+        )
+        supported = ledger.ratify(
             OWNER, IDENTITY.model_copy(update={"id": "D2"}), 0, evidence, "supported"
         )
+        (before,) = VersionChange.model_validate(
+            initial.payload["data"]
+        ).brief_citations
+        assert (before.clause_id, before.text, before.ledger_version) == (
+            "B1",
+            episode.brief.clauses[0].text,
+            0,
+        )
+        resolved = VersionChange.model_validate(
+            supported.payload["data"]
+        ).brief_citations
+        assert [
+            (item.clause_id, item.text, item.ledger_version) for item in resolved
+        ] == [
+            ("B1", "replacement clause", change.seq),
+            ("B2", "later clause", change.seq),
+        ]
+        version = next(
+            node
+            for node in supported.payload["@graph"]
+            if node["@id"] == supported.payload["@graph"][0]["generated"]
+        )
+        assert [item["clauseText"] for item in version["briefCitation"]] == [
+            "replacement clause",
+            "later clause",
+        ]
         assert ledger.snapshot().ledger_version == 3
+        assert ledger.verify() is None
 
 
 def test_scope_narrowing_tombstones_only_the_lost_scope(tmp_path):

@@ -5,7 +5,6 @@ from pathlib import Path
 from statistics import median
 from tempfile import TemporaryDirectory
 
-from soc.episode import load_runtime
 from soc.ledger.models import (
     Actor,
     BriefChanged,
@@ -17,19 +16,18 @@ from soc.ledger.models import (
     Ruling,
     VersionRef,
 )
-from soc.ledger.store import Ledger
+from soc.orchestrator.ledger import open_run_ledger
 
 TOY = Path(__file__).resolve().parents[1] / "data" / "episodes" / "toy"
 
 
 def sample(path: Path) -> list[float]:
-    episode = load_runtime(TOY)
-    schedule = episode.events
-    sentences = {sentence.id: sentence for sentence in episode.source}
     principal = Actor(agent="client", model="human", role="principal")
     executor = Actor(agent="translator", model="model-a", role="executor")
     times: list[float] = []
-    with Ledger(path, "toy", episode=episode) as ledger:
+    with open_run_ledger(TOY, path, "toy") as (episode, ledger):
+        schedule = episode.events
+        sentences = {sentence.id: sentence for sentence in episode.source}
         for index, chunk in enumerate(schedule.chunks, 1):
             state = ledger.snapshot()
             scope = {
@@ -51,6 +49,7 @@ def sample(path: Path) -> list[float]:
                         for item in uses
                     ],
                     decisions={item.commitment_id: item.rendering for item in uses},
+                    output_ref=f"urn:soc:benchmark:chunk-{index}:1",
                 ),
                 chunk_id=f"chunk-{index}",
             )

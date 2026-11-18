@@ -151,8 +151,7 @@ async def _predict(
                 run_id=client.run_id,
                 call_id=call_id,
                 sampling={"max_output_tokens": max_output_tokens},
-            ),
-            recover=True,
+            )
         )
     except ProviderRequestError as error:
         return None, str(error)

@@ -16,6 +16,10 @@
       "access token"
     ],
     "rendering": "erişim jetonu",
+    "antecedent": [
+      "access token"
+    ],
+    "consequent": "erişim jetonu",
     "rationale": "Client terminology",
     "evidence": [
       "source:9999-1-s01",
@@ -54,6 +58,10 @@
       "access token"
     ],
     "rendering": "erişim jetonu",
+    "antecedent": [
+      "access token"
+    ],
+    "consequent": "erişim jetonu",
     "rationale": "Client terminology",
     "evidence": [
       "source:9999-1-s01",
@@ -92,6 +100,10 @@
       "access token"
     ],
     "rendering": "erişim jetonu",
+    "antecedent": [
+      "access token"
+    ],
+    "consequent": "erişim jetonu",
     "rationale": "Client terminology",
     "evidence": [
       "source:9999-1-s01",
@@ -130,6 +142,10 @@
       "access token"
     ],
     "rendering": "erişim jetonu",
+    "antecedent": [
+      "access token"
+    ],
+    "consequent": "erişim jetonu",
     "rationale": "Client terminology",
     "evidence": [
       "source:9999-1-s01",
@@ -168,6 +184,10 @@
       "access token"
     ],
     "rendering": "erişim jetonu",
+    "antecedent": [
+      "access token"
+    ],
+    "consequent": "erişim jetonu",
     "rationale": "Client terminology",
     "evidence": [
       "source:9999-1-s01",
@@ -206,6 +226,10 @@
       "access token"
     ],
     "rendering": "erişim jetonu",
+    "antecedent": [
+      "access token"
+    ],
+    "consequent": "erişim jetonu",
     "rationale": "Client terminology",
     "evidence": [
       "source:9999-1-s01",
@@ -244,6 +268,10 @@
       "access token"
     ],
     "rendering": "erişim jetonu",
+    "antecedent": [
+      "access token"
+    ],
+    "consequent": "erişim jetonu",
     "rationale": "Client terminology",
     "evidence": [
       "source:9999-1-s01",

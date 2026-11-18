@@ -197,6 +197,11 @@ class Checker:
         scopes = set(sentence.scope_keys)
         findings = []
         for decision in decisions:
+            if (
+                decision.sentence_ids is not None
+                and sentence.id not in decision.sentence_ids
+            ):
+                continue
             applicable = decision.scope_keys & scopes
             if not applicable:
                 continue
@@ -218,7 +223,9 @@ class Checker:
                     )
                 )
         for rule in forbidden:
-            if rule.scope_keys & scopes:
+            if rule.scope_keys & scopes and (
+                rule.sentence_ids is None or sentence.id in rule.sentence_ids
+            ):
                 findings.extend(
                     Finding(
                         "forbidden",

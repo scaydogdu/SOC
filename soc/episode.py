@@ -75,6 +75,58 @@ class Episode(Record):
     events: Schedule
 
 
+class EpisodeError(ValueError):
+    """A package violates a named validation rule."""
+
+
+def validate_runtime(episode: Episode) -> Episode:
+    """Check the relationships among the three public files."""
+    events = episode.events
+    sentence_ids: set[str] = set()
+    for sentence in episode.source:
+        match = SENTENCE_ID.fullmatch(sentence.id)
+        if (
+            match is None
+            or match["section"] != sentence.section
+            or sentence.id in sentence_ids
+        ):
+            raise EpisodeError(f"sentence IDs: malformed or duplicate ID {sentence.id}")
+        sentence_ids.add(sentence.id)
+    if any(not chunk.sentence_ids for chunk in events.chunks):
+        raise EpisodeError("event positions: chunks cannot be empty")
+    chunk_ids = [sid for chunk in events.chunks for sid in chunk.sentence_ids]
+    scheduled_ids = set(chunk_ids)
+    if missing := scheduled_ids - sentence_ids:
+        raise EpisodeError(f"sentence IDs: unknown reference {sorted(missing)}")
+    if len(chunk_ids) != len(sentence_ids) or scheduled_ids != sentence_ids:
+        raise EpisodeError("sentence IDs: chunks must partition the source sentences")
+
+    brief_ids: set[str] = set()
+    for clauses in (episode.brief.clauses, events.brief_change.clauses):
+        ids = {clause.id for clause in clauses}
+        if len(ids) != len(clauses) or any(
+            not clause.id.strip() or not clause.text.strip() for clause in clauses
+        ):
+            raise EpisodeError(
+                "brief clause IDs: expected unique IDs and nonblank clauses"
+            )
+        brief_ids.update(ids)
+    brief_refs = {
+        cid for approval in events.approvals for cid in approval.brief_clause_ids
+    }
+    if missing := brief_refs - brief_ids:
+        raise EpisodeError(f"brief clause IDs: unknown reference {sorted(missing)}")
+
+    executor = events.executor_change_after
+    change = events.brief_change.chunk
+    positions = [executor, change, *(approval.chunk for approval in events.approvals)]
+    if max(positions) > len(events.chunks) or executor >= change:
+        raise EpisodeError(
+            "event positions: expected in-range chunks and executor change before brief change"
+        )
+    return episode
+
+
 def read_lines[T: Record](path: Path, model: type[T]) -> list[T]:
     return [
         model.model_validate(json.loads(line))

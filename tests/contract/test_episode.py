@@ -10,6 +10,10 @@ import yaml
 
 from eval.episode import EpisodeError, main, validate
 from soc.episode import load_runtime
+from soc.ledger.models import BriefChanged
+from soc.ledger.store import Ledger
+from soc.orchestrator.ledger import open_run_ledger
+from tests.ledger_examples import OWNER
 
 TOY = Path("data/episodes/toy")
 
@@ -53,6 +57,39 @@ def test_valid_episode(monkeypatch, capsys):
     monkeypatch.setattr("sys.argv", ["episode", str(TOY)])
     main()
     assert "Valid episode:" in capsys.readouterr().out
+
+
+def test_writable_run_ledger_validates_and_binds_only_the_public_episode(tmp_path):
+    public = tmp_path / "public"
+    public.mkdir()
+    for name in ("source.jsonl", "brief.yaml", "events.yaml"):
+        shutil.copyfile(TOY / name, public / name)
+    source = public / "source.jsonl"
+    original = source.read_text()
+    source.write_text(original + original.splitlines()[0] + "\n")
+    database = tmp_path / "run.sqlite"
+    with pytest.raises(EpisodeError, match="^sentence IDs:"):
+        with open_run_ledger(public, database, "toy"):
+            pytest.fail("invalid episode opened a ledger")
+    assert not database.exists()
+    source.write_text(original)
+
+    with Ledger(database, "toy") as isolated:
+        with open_run_ledger(public, database, "toy") as (episode, ledger):
+            assert episode.source and ledger.snapshot().ledger_version == 0
+        with pytest.raises(ValueError, match="requires its public episode"):
+            isolated.record(OWNER, BriefChanged(clauses={"B1": "unsafe second handle"}))
+    with pytest.raises(ValueError, match="requires its public episode"):
+        Ledger(database, "toy")
+    with open_run_ledger(public, database, "toy") as (_, ledger):
+        assert ledger.verify() is None
+        assert ledger.snapshot().ledger_version == 0
+
+    brief = public / "brief.yaml"
+    brief.write_text(brief.read_text().replace("Turkish", "English"))
+    with pytest.raises(ValueError, match="differs from the recorded"):
+        with open_run_ledger(public, database, "toy"):
+            pytest.fail("replacement episode opened a ledger")
 
 
 @pytest.mark.parametrize(
@@ -119,6 +156,26 @@ def test_runtime_rejects_extra_schedule_fields(tmp_path):
     ("rule", "file", "edit"),
     [
         ("sentence IDs", "events.yaml", lambda s: s.replace("  - 9999-1-s02\n", "")),
+        (
+            "sentence IDs",
+            "events.yaml",
+            lambda s: s.replace("9999-1-s02", "9999-1-s99", 1),
+        ),
+        (
+            "brief clause IDs",
+            "brief.yaml",
+            lambda s: s + "- id: B1\n  text: Ambiguous duplicate.\n",
+        ),
+        (
+            "brief clause IDs",
+            "events.yaml",
+            lambda s: s.replace("  - B1", "  - B99", 1),
+        ),
+        (
+            "event positions",
+            "affected.jsonl",
+            lambda s: s.replace('"chunk": 4', '"chunk": 5', 1),
+        ),
         (
             "event positions",
             "affected.jsonl",

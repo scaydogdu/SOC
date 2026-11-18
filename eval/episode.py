@@ -11,7 +11,6 @@ from typing import Literal
 from pydantic import PositiveInt
 
 from soc.episode import (
-    SENTENCE_ID,
     Approval,
     Chunk,
     Episode,
@@ -21,7 +20,9 @@ from soc.episode import (
     load_runtime,
     read_lines,
     read_yaml,
+    validate_runtime,
 )
+from soc.episode import EpisodeError as EpisodeError
 
 FILES = frozenset(
     {
@@ -87,10 +88,6 @@ class FullEpisode(Record):
     manifest: Manifest
 
 
-class EpisodeError(ValueError):
-    """A package violates a named validation rule."""
-
-
 def _manifest(directory: Path) -> Manifest:
     if {
         path.name for path in directory.iterdir() if path.name != ".DS_Store"
@@ -131,55 +128,31 @@ def validate(directory: Path) -> FullEpisode:
 
 
 def validate_loaded(episode: FullEpisode) -> FullEpisode:
-    runtime = episode.runtime
+    runtime = validate_runtime(episode.runtime)
     events = runtime.events
-    sentence_ids: set[str] = set()
-    for sentence in runtime.source:
-        match = SENTENCE_ID.fullmatch(sentence.id)
-        if (
-            match is None
-            or match["section"] != sentence.section
-            or sentence.id in sentence_ids
-        ):
-            raise EpisodeError(f"sentence IDs: malformed or duplicate ID {sentence.id}")
-        sentence_ids.add(sentence.id)
-    if any(not chunk.sentence_ids for chunk in events.chunks):
-        raise EpisodeError("event positions: chunks cannot be empty")
+    sentence_ids = {sentence.id for sentence in runtime.source}
     affected_sites = [
         site for entry in episode.affected for site in entry.repair + entry.apply
     ]
-    chunk_ids = [sid for chunk in events.chunks for sid in chunk.sentence_ids]
-    refs = set(chunk_ids)
-    refs.update(sid for seed in episode.seeds for sid in seed.sentence_ids)
+    refs = {sid for seed in episode.seeds for sid in seed.sentence_ids}
     refs.update(site.sentence_id for site in affected_sites)
     refs.update(error.sentence_id for error in episode.hidden.planted_errors)
     if missing := refs - sentence_ids:
         raise EpisodeError(f"sentence IDs: unknown reference {sorted(missing)}")
-    if len(chunk_ids) != len(sentence_ids) or set(chunk_ids) != sentence_ids:
-        raise EpisodeError("sentence IDs: chunks must partition the source sentences")
-
     brief_ids = {
         clause.id for clause in runtime.brief.clauses + events.brief_change.clauses
     }
     brief_refs = {
-        cid for approval in events.approvals for cid in approval.brief_clause_ids
-    }
-    brief_refs.update(
         cid for pref in episode.hidden.preferences for cid in pref.brief_clause_ids
-    )
+    }
     if missing := brief_refs - brief_ids:
         raise EpisodeError(f"brief clause IDs: unknown reference {sorted(missing)}")
 
-    executor = events.executor_change_after
-    change = events.brief_change.chunk
-    positions = [executor, change]
-    positions.extend(approval.chunk for approval in events.approvals)
     use_sites = affected_sites + [
         UseSite(chunk=error.chunk, sentence_id=error.sentence_id)
         for error in episode.hidden.planted_errors
     ]
-    positions.extend(site.chunk for site in use_sites)
-    if max(positions) > len(events.chunks) or executor >= change:
+    if any(site.chunk > len(events.chunks) for site in use_sites):
         raise EpisodeError(
             "event positions: expected in-range chunks and executor change before brief change"
         )

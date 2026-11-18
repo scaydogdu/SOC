@@ -9,8 +9,8 @@
     "sequence": 2,
     "eventType": "Revised",
     "actor": "urn:soc:agent:owner",
-    "antecedent": "urn:soc:version:D1/1",
-    "consequent": "urn:soc:version:D1/2"
+    "used": "urn:soc:version:D1/1",
+    "generated": "urn:soc:version:D1/2"
   },
   {
     "@id": "urn:soc:agent:owner",
@@ -33,6 +33,10 @@
       "access token"
     ],
     "rendering": "erişim jetonu",
+    "antecedent": [
+      "access token"
+    ],
+    "consequent": "erişim jetonu",
     "rationale": "Client terminology",
     "evidence": [
       "source:9999-1-s01",
@@ -71,6 +75,10 @@
       "access token"
     ],
     "rendering": "erişim jetonu",
+    "antecedent": [
+      "access token"
+    ],
+    "consequent": "erişim jetonu",
     "rationale": "Client terminology",
     "evidence": [
       "source:9999-1-s01",

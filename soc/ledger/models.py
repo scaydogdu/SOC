@@ -16,9 +16,13 @@ State = Literal[
     "superseded",
     "revoked",
 ]
+BINDING_STATES: frozenset[State] = frozenset({"ratified", "amended"})
 Consistency = Literal["ONE", "QUORUM", "ALL", "SERIAL"]
+TRIAD_APPROVAL_COUNTS = {"ONE": 1, "QUORUM": 2, "ALL": 3}
+AuthorityClass = Literal["principal", "triad"]
 Strength = Literal["must", "should", "may"]
 EventType = Literal[
+    "Provisional",
     "Ratified",
     "ConflictRaised",
     "Revised",
@@ -34,6 +38,7 @@ EventType = Literal[
     "CrossExamTurn",
     "VoteCast",
     "StaleMarked",
+    "StaleDetected",
     "GateDecision",
     "PrincipalAnswered",
     "StandingUpdated",
@@ -52,12 +57,19 @@ class Actor(Record):
     role: Text
 
 
+class DecisionSubject(Record):
+    kind: Text
+    key: Text
+
+
 class Commitment(Record):
     id: Text
     operation: Text
     owner: Text
     debtor: Text
     creditor: Text
+    subject: DecisionSubject | None = None
+    authority: AuthorityClass | None = None
 
 
 class Quote(Record):
@@ -84,6 +96,7 @@ class Ruling(Record):
     consistency: Consistency
     state: State
     strength: Strength = "must"
+    sentence_ids: Annotated[list[Text], Field(min_length=1)] | None = None
 
 
 class CommitmentVersion(Ruling):
@@ -93,26 +106,10 @@ class CommitmentVersion(Ruling):
     valid_until: Version | None = None
 
 
-class VersionChange(Record):
-    commitment: Commitment
-    version: CommitmentVersion
-    reason: Text
-
-
-class Conflict(Record):
-    expected: BaseVersion
-    actual: BaseVersion
-
-
-class Tombstone(Record):
-    rendering: Text
-    scope: list[Text]
-    commitment_id: Text
-    version: Version
-
-
-class BriefChanged(Record):
-    clauses: dict[Text, Text]
+class BriefCitation(Record):
+    clause_id: Text
+    text: Text
+    ledger_version: BaseVersion
 
 
 class VersionRef(Record):
@@ -120,10 +117,68 @@ class VersionRef(Record):
     version: Version
 
 
+class DecisionUse(Record):
+    ref: VersionRef
+    sentence_id: Text
+
+
+class OperationAuthority(Record):
+    operation: Text
+    principal: Text
+
+
+class RulingApproval(Record):
+    operation: Text
+    triad: list[Text] = Field(default_factory=list)
+    approvers: list[Text]
+
+
+class VersionChange(Record):
+    commitment: Commitment
+    version: CommitmentVersion
+    reason: Text
+    brief_citations: list[BriefCitation] = Field(default_factory=list)
+    commitment_citations: list[VersionRef] = Field(default_factory=list)
+    approval: RulingApproval | None = None
+
+
+class Conflict(Record):
+    expected: BaseVersion
+    actual: BaseVersion
+
+
+class RulingOverlap(Record):
+    commitment_id: Text
+    version: Version
+    sentence_ids: Annotated[list[Text], Field(min_length=1)]
+
+
+class RulingConflict(Record):
+    candidate_id: Text
+    subject: DecisionSubject
+    overlaps: Annotated[list[RulingOverlap], Field(min_length=1)]
+
+
+class Tombstone(Record):
+    rendering: Text
+    scope: list[Text]
+    commitment_id: Text
+    version: Version
+    sentence_ids: list[Text] | None = None
+
+
+class BriefChanged(Record):
+    clauses: dict[Text, Text]
+
+
 class ChunkBuilt(Record):
     ledger_version: BaseVersion
     uses: list[VersionRef]
     decisions: dict[Text, Text]
+    build_number: Version = 1
+    # Older append-only events predate output references.
+    output_ref: Text | None = None
+    use_sites: list[DecisionUse] = Field(default_factory=list)
 
 
 class ExecutorRebound(Record):
@@ -136,13 +191,14 @@ class FlagRaised(Record):
     reason: Text
 
 
-class DecisionDeclared(Record):
-    ruling: Ruling
+class DecisionDeclared(DecisionUse):
+    verified: bool
 
 
-class DecisionCaptured(Record):
-    ruling: Ruling
-    evidence: list[Text]
+class DecisionCaptured(DecisionUse):
+    excerpt: Text
+    start: BaseVersion
+    end: Version
 
 
 class CrossExamTurn(Record):
@@ -150,18 +206,48 @@ class CrossExamTurn(Record):
     answer: Text
 
 
-class VoteCast(Record):
+class RulingBallot(Record):
+    voter: Text
+    choice: str | None
+
+
+class VoteCast(RulingBallot):
     decision_id: Text
-    choice: Text
 
 
 class StaleMarked(Record):
     chunk_ids: list[Text]
+    overturned: VersionRef | None = None
+    replaced_by: VersionRef | None = None
+
+
+RepairPath = Literal["review", "gate", "final_sweep"]
+
+
+class StaleDetected(Record):
+    path: RepairPath
+    build_number: Version
+
+
+GateOutcome = Literal["block", "warning", "allowed", "unknown"]
+
+
+class GateFinding(Record):
+    rule: Text
+    detail: Text
+    outcome: GateOutcome
+    sentence_id: str | None = None
+    commitment_id: Text | None = None
+    strength: Strength | None = None
+    start: BaseVersion | None = None
+    end: BaseVersion | None = None
 
 
 class GateDecision(Record):
     accepted: bool
     reason: Text
+    build_number: Version | None = None
+    findings: list[GateFinding] = Field(default_factory=list)
 
 
 class PrincipalAnswered(Record):

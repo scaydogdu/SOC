@@ -51,6 +51,7 @@ class Decision:
     kind: DecisionKind
     brief_clause_ids: tuple[str, ...] = ()
     strength: Strength = "must"
+    sentence_ids: frozenset[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -65,6 +66,7 @@ class ForbiddenRendering:
     scope_keys: frozenset[str]
     decision_id: str
     strength: Strength = "must"
+    sentence_ids: frozenset[str] | None = None
 
 
 @dataclass(frozen=True)

@@ -56,6 +56,17 @@ def test_strength_shape_requires_exactly_one_value(strengths):
         validate_records(nodes)
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("antecedent", ["different scope"]), ("consequent", "different rendering")],
+)
+def test_commitment_roles_match_the_ruling(field, value):
+    nodes = json.loads((FIXTURES / "valid-strength.json").read_bytes())
+    nodes[1][field] = value
+    with pytest.raises(ShapeError, match="^CommitmentRolesShape$"):
+        validate_records(nodes)
+
+
 def test_ontology_declares_ledger_and_shape_vocabulary():
     ontology = Graph().parse(ASSETS / "ontology.ttl", format="turtle")
     shapes = Graph().parse(ASSETS / "shapes.ttl", format="turtle")

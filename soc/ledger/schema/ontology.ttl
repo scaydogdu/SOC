@@ -18,6 +18,24 @@ soc:CommitmentVersion a owl:Class ;
   rdfs:label "Commitment version" ;
   rdfs:comment "An immutable version of a ruling, with its scope, supporting evidence, and validity interval." .
 
+soc:decisionKind a owl:DatatypeProperty ;
+  rdfs:domain soc:Commitment ;
+  rdfs:range xsd:string ;
+  rdfs:label "decision kind" ;
+  rdfs:comment "The category of decision under which the subject key is interpreted." .
+
+soc:decisionKey a owl:DatatypeProperty ;
+  rdfs:domain soc:Commitment ;
+  rdfs:range xsd:string ;
+  rdfs:label "decision key" ;
+  rdfs:comment "The canonical decision subject within its kind and operation." .
+
+soc:useSite a owl:DatatypeProperty ;
+  rdfs:domain soc:CommitmentVersion ;
+  rdfs:range xsd:string ;
+  rdfs:label "use site" ;
+  rdfs:comment "The stable identifier of a source sentence to which this version applies." .
+
 soc:ExecutorEpoch a owl:Class ;
   rdfs:subClassOf prov:Entity ;
   rdfs:label "Executor epoch" ;
@@ -27,6 +45,35 @@ soc:LedgerEvent a owl:Class ;
   rdfs:subClassOf prov:Activity ;
   rdfs:label "Ledger event" ;
   rdfs:comment "An activity recorded at a sequence number in the ledger." .
+
+soc:ChunkBuild a owl:Class ;
+  rdfs:subClassOf soc:LedgerEvent ;
+  rdfs:label "Chunk build" ;
+  rdfs:comment "An accepted output for one chunk at a particular build number." .
+
+soc:chunkId a owl:DatatypeProperty ;
+  rdfs:domain soc:ChunkBuild ;
+  rdfs:range xsd:string ;
+  rdfs:label "chunk identifier" ;
+  rdfs:comment "The stable identifier of the chunk built by the activity." .
+
+soc:buildNumber a owl:DatatypeProperty ;
+  rdfs:domain soc:ChunkBuild ;
+  rdfs:range xsd:integer ;
+  rdfs:label "build number" ;
+  rdfs:comment "The one-based position of the build in the chunk's history." .
+
+soc:outputRef a owl:DatatypeProperty ;
+  rdfs:domain soc:ChunkBuild ;
+  rdfs:range xsd:string ;
+  rdfs:label "output reference" ;
+  rdfs:comment "An application-defined reference to the output stored for this build." .
+
+soc:ledgerSnapshot a owl:DatatypeProperty ;
+  rdfs:domain soc:ChunkBuild ;
+  rdfs:range xsd:integer ;
+  rdfs:label "ledger snapshot" ;
+  rdfs:comment "The ledger sequence against which the build resolved commitment versions." .
 
 soc:RevisionEvent a owl:Class ;
   rdfs:subClassOf soc:LedgerEvent ;
@@ -42,6 +89,28 @@ soc:BriefChange a owl:Class ;
   rdfs:subClassOf soc:LedgerEvent ;
   rdfs:label "Brief change" ;
   rdfs:comment "A change to the operation's brief recorded by the principal." .
+
+soc:BriefCitation a owl:Class ;
+  rdfs:label "Brief citation" ;
+  rdfs:comment "The text of a cited brief clause and the sequence at which it took effect." .
+
+soc:briefCitation a owl:ObjectProperty ;
+  rdfs:domain soc:CommitmentVersion ;
+  rdfs:range soc:BriefCitation ;
+  rdfs:label "brief citation" ;
+  rdfs:comment "A brief clause resolved when the ruling was written." .
+
+soc:clauseId a owl:DatatypeProperty ;
+  rdfs:domain soc:BriefCitation ;
+  rdfs:range xsd:string ;
+  rdfs:label "clause identifier" ;
+  rdfs:comment "The identifier used for the clause in the brief." .
+
+soc:clauseText a owl:DatatypeProperty ;
+  rdfs:domain soc:BriefCitation ;
+  rdfs:range xsd:string ;
+  rdfs:label "clause text" ;
+  rdfs:comment "The wording of the clause in force when it was cited." .
 
 soc:SourceQuote a owl:Class ;
   rdfs:label "Source quote" ;
@@ -63,19 +132,35 @@ soc:creditor a owl:ObjectProperty ;
   rdfs:label "creditor" ;
   rdfs:comment "The agent to whom the commitment is owed." .
 
-soc:antecedent a owl:ObjectProperty ;
+soc:antecedent a owl:DatatypeProperty ;
+  rdfs:domain soc:CommitmentVersion ;
+  rdfs:range xsd:string ;
   rdfs:label "antecedent" ;
-  rdfs:comment "In M0 revision events, links to the previous commitment version." .
+  rdfs:comment "A scope key that identifies where the ruling applies." .
 
-soc:consequent a owl:ObjectProperty ;
+soc:consequent a owl:DatatypeProperty ;
+  rdfs:domain soc:CommitmentVersion ;
+  rdfs:range xsd:string ;
   rdfs:label "consequent" ;
-  rdfs:comment "In M0 revision and ratification events, links to the resulting commitment version." .
+  rdfs:comment "The rendering required by the ruling in its scope." .
 
 soc:owner a owl:ObjectProperty ;
   rdfs:domain soc:Commitment ;
   rdfs:range prov:Agent ;
   rdfs:label "owner" ;
-  rdfs:comment "The agent authorized to revise the commitment." .
+  rdfs:comment "The principal, the initial triad issuer, or the owner of a legacy commitment." .
+
+soc:authorityClass a owl:DatatypeProperty ;
+  rdfs:domain soc:Commitment ;
+  rdfs:range xsd:string ;
+  rdfs:label "authority class" ;
+  rdfs:comment "Whether the principal or an authorized triad controls the commitment in its operation." .
+
+soc:approver a owl:ObjectProperty ;
+  rdfs:domain soc:CommitmentVersion ;
+  rdfs:range prov:Agent ;
+  rdfs:label "approver" ;
+  rdfs:comment "An authenticated participant whose approval supported this version." .
 
 soc:commitment a owl:ObjectProperty ;
   rdfs:domain soc:CommitmentVersion ;
@@ -192,7 +277,7 @@ soc:strength a owl:DatatypeProperty ;
   rdfs:comment "Normative strength of the ruling, expressed as must, should, or may." .
 
 soc:validFrom a owl:DatatypeProperty ;
-  rdfs:domain [ a owl:Class ; owl:unionOf (soc:CommitmentVersion soc:ExecutorEpoch) ] ;
+  rdfs:domain [ a owl:Class ; owl:unionOf (soc:CommitmentVersion soc:ExecutorEpoch soc:BriefCitation) ] ;
   rdfs:range xsd:integer ;
   rdfs:label "valid from" ;
   rdfs:comment "The inclusive starting sequence number of the validity interval." .

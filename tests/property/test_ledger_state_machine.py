@@ -138,6 +138,7 @@ class LedgerMachine(RuleBasedStateMachine):
                 for key, entry in active.items()
             ],
             decisions={key: entry[1] for key, entry in active.items()},
+            output_ref=f"outputs/chunk-{self.seq + 1}/build-1.json",
         )
         self.seq += 1
         chunk_id = f"chunk-{self.seq}"

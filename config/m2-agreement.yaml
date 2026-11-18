@@ -1,0 +1,7 @@
+rules:
+  provisional: ONE
+  term: QUORUM
+  style: QUORUM
+  normative: ALL
+  brief_gap: SERIAL
+  brief_change: SERIAL

@@ -1,6 +1,7 @@
 """Produce local JSON-LD records and validate their graph using SHACL."""
 
 import json
+from collections.abc import Sequence
 from copy import deepcopy
 from functools import cache
 from pathlib import Path
@@ -13,7 +14,14 @@ from pyshacl import validate
 from rdflib import Graph
 from rdflib.namespace import SH
 
-from soc.ledger.models import Actor, Commitment, CommitmentVersion, ExecutorRebound
+from soc.ledger.models import (
+    Actor,
+    BriefCitation,
+    Commitment,
+    CommitmentVersion,
+    ExecutorRebound,
+    RulingApproval,
+)
 
 ASSETS = Path(__file__).parent
 NAMESPACE = "https://w3id.org/soc-testbed#"
@@ -54,7 +62,9 @@ def version_iri(commitment_id: str, version: int) -> str:
 def version_nodes(
     identity: Commitment,
     version: CommitmentVersion,
-    previous: str | None = None,
+    brief_citations: Sequence[BriefCitation] = (),
+    *,
+    approval: RulingApproval | None = None,
 ) -> list[Node]:
     commitment: Node = {
         "@id": iri("commitment", identity.id),
@@ -64,6 +74,11 @@ def version_nodes(
         "debtor": _agent(identity.debtor),
         "creditor": _agent(identity.creditor),
     }
+    if identity.subject is not None:
+        commitment["decisionKind"] = identity.subject.kind
+        commitment["decisionKey"] = identity.subject.key
+    if identity.authority is not None:
+        commitment["authorityClass"] = identity.authority
     record: Node = {
         "@id": version_iri(identity.id, version.version),
         "@type": "CommitmentVersion",
@@ -71,6 +86,8 @@ def version_nodes(
         "version": version.version,
         "scope": list(version.scope),
         "rendering": version.rendering,
+        "antecedent": list(version.scope),
+        "consequent": version.rendering,
         "rationale": version.rationale,
         "evidence": list(version.evidence),
         "proposer": _agent(version.proposer),
@@ -82,6 +99,20 @@ def version_nodes(
     }
     if version.valid_until is not None:
         record["validUntil"] = version.valid_until
+    if approval is not None:
+        record["approver"] = [_agent(agent) for agent in approval.approvers]
+    if version.sentence_ids is not None:
+        record["useSite"] = list(version.sentence_ids)
+    if brief_citations:
+        record["briefCitation"] = [
+            {
+                "@type": "BriefCitation",
+                "clauseId": citation.clause_id,
+                "clauseText": citation.text,
+                "validFrom": citation.ledger_version,
+            }
+            for citation in brief_citations
+        ]
     if version.source_quote is not None:
         record["sourceQuote"] = {
             "sentenceId": version.source_quote.sentence_id,
@@ -94,8 +125,8 @@ def version_nodes(
                 version.rule.parameters, sort_keys=True, allow_nan=False
             ),
         }
-    if previous is not None:
-        record["wasRevisionOf"] = previous
+    if version.version > 1:
+        record["wasRevisionOf"] = version_iri(identity.id, version.version - 1)
     return [commitment, record]
 
 
