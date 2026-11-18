@@ -8,6 +8,12 @@ from pathlib import Path
 
 from soc.providers.models import Outcome, ProviderRequest, RecordedReply
 
+RETRYABLE_OUTCOMES = (
+    Outcome.BUDGET_EXHAUSTED,
+    Outcome.RATE_LIMITED,
+    Outcome.SERVER_ERROR,
+)
+
 
 def cache_key(request: ProviderRequest, replicate: int) -> str:
     data = {"request": request.model_dump(mode="json"), "replicate": replicate}
@@ -55,5 +61,10 @@ class ResponseCache:
                 "ON CONFLICT(run_id, call_id, key) DO UPDATE SET reply = excluded.reply",
                 (run_id, call_id, key, data),
             )
-            if reply.outcome is not Outcome.BUDGET_EXHAUSTED:
-                db.execute("INSERT OR IGNORE INTO responses VALUES (?, ?)", (key, data))
+            if reply.outcome not in RETRYABLE_OUTCOMES:
+                db.execute(
+                    "INSERT INTO responses VALUES (?, ?) "
+                    "ON CONFLICT(key) DO UPDATE SET reply = excluded.reply "
+                    "WHERE json_extract(responses.reply, '$.outcome') IN (?, ?, ?)",
+                    (key, data, *RETRYABLE_OUTCOMES),
+                )

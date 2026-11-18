@@ -1,6 +1,7 @@
 import asyncio
 import gzip
 import json
+import sqlite3
 from collections import deque
 from dataclasses import replace
 from pathlib import Path
@@ -71,9 +72,10 @@ def client(
     initial_tokens: int = 0,
     retries: int = 2,
     rpm: float = 1e12,
+    run_id: str = "run",
 ) -> ModelClient:
     return ModelClient(
-        run_id="run",
+        run_id=run_id,
         mode=mode,
         cache=ResponseCache(tmp_path / "cache.sqlite"),
         run_dir=tmp_path / mode.value,
@@ -122,6 +124,33 @@ def test_live_records_each_call_and_replay_preserves_identical_request_outputs(
     assert {row["source"] for row in logs(tmp_path, Mode.REPLAY)} == {"cache"}
 
 
+def test_strict_replay_requires_exact_run_and_call_even_at_token_cap(tmp_path):
+    provider = Script(good("recorded"))
+    live = client(tmp_path, Mode.LIVE, provider)
+    replay = client(tmp_path, Mode.REPLAY, cap=10)
+    recording = client(tmp_path, Mode.RECORD_MISSING, provider)
+    original = request()
+
+    async def scenario():
+        recorded = await live.generate(original)
+        with pytest.raises(CacheMiss, match="no recorded response"):
+            await replay.generate(replace(original, call_id="other-call"))
+        other_run = client(tmp_path, Mode.REPLAY, run_id="other-run")
+        with pytest.raises(CacheMiss, match="no recorded response"):
+            await other_run.generate(replace(original, run_id=other_run.run_id))
+        assert await replay.generate(original) == recorded
+        assert replay.tokens == 10
+        with pytest.raises(CacheMiss, match="no recorded response"):
+            await replay.generate(replace(original, call_id="other-call"))
+        assert (
+            await recording.generate(replace(original, call_id="other-call"))
+            == recorded
+        )
+
+    asyncio.run(scenario())
+    assert len(provider.requests) == 1
+
+
 def test_cache_key_covers_request_and_record_missing_reuses_hit(tmp_path):
     req = request()
     provider = Script(good("recorded"))
@@ -155,6 +184,35 @@ def test_cache_key_covers_request_and_record_missing_reuses_hit(tmp_path):
     assert {row["outcome"] for row in entries} == {"cache_miss"}
     with pytest.raises(ValueError, match="replay does not accept"):
         client(tmp_path, Mode.REPLAY, provider)
+
+
+def test_cache_first_run_replaces_legacy_transient_response(tmp_path):
+    req = request()
+    failed = Script(Reply(outcome=Outcome.SERVER_ERROR))
+    recording = client(tmp_path, Mode.LIVE, failed, retries=0)
+    failure = asyncio.run(recording.generate(req))
+    key = logs(tmp_path, Mode.LIVE)[0]["cache_key"]
+    with sqlite3.connect(recording.cache.path) as db:
+        db.execute(
+            "INSERT INTO responses VALUES (?, ?)",
+            (key, failure.reply.model_dump_json()),
+        )
+
+    provider = Script(good("retried"))
+    cache_first = client(tmp_path, Mode.RECORD_MISSING, provider)
+    replay = client(tmp_path, Mode.REPLAY)
+
+    async def scenario():
+        assert await replay.generate(req) == failure
+        assert await cache_first.generate(req, recover=True) == failure
+        retried = await cache_first.generate(request("retry"))
+        assert retried.parsed == Answer(value="retried")
+        assert await cache_first.generate(request("new")) == retried
+        assert await replay.generate(request("new")) == retried
+        assert await replay.generate(req) == failure
+
+    asyncio.run(scenario())
+    assert len(provider.requests) == 1
 
 
 @pytest.mark.parametrize(

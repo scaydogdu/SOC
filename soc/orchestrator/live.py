@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import json
 import os
 import subprocess
 from collections.abc import Callable, Mapping
@@ -200,7 +201,7 @@ def campaign_client(
         raise ValueError("live campaign routes require a shared spend guard")
     return ModelClient(
         run_id=run_id,
-        mode=Mode.LIVE if routes is not None else Mode.REPLAY,
+        mode=Mode.RECORD_MISSING if routes is not None else Mode.REPLAY,
         cache=ResponseCache(root / "cache.sqlite"),
         run_dir=run_dir,
         limits=RunLimits(token_cap=config.token_cap_per_run),
@@ -245,8 +246,7 @@ async def _call_probe(
             run_id=client.run_id,
             call_id=f"{model}-{effort}-{purpose}",
             sampling={"max_output_tokens": max_output_tokens},
-        ),
-        recover=True,
+        )
     )
     reply = result.reply
     return ProbeCall(
@@ -449,7 +449,11 @@ def live_routes(config: LiveConfig, http: httpx.AsyncClient) -> dict[str, Route]
         if family in available
     }
     return {
-        model: Route(entry.family, adapters[entry.family])
+        model: Route(
+            entry.family,
+            adapters[entry.family],
+            caps_billed_output=entry.family == "openai",
+        )
         for model, entry in config.models.items()
         if entry.family in adapters
     }
@@ -505,7 +509,12 @@ def main() -> int:
     parser.add_argument("--episode", type=Path, default=Path("data/episodes/toy"))
     parser.add_argument("--code-commit")
     args = parser.parse_args()
-    if args.code_commit is None and args.command != "probe":
+    if args.code_commit is None and args.command == "replay":
+        recorded = args.output / "toy" / "run.json"
+        args.code_commit = json.loads(recorded.read_text(encoding="utf-8"))[
+            "code_commit"
+        ]
+    elif args.code_commit is None and args.command == "toy":
         args.code_commit = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
         ).strip()

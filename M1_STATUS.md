@@ -104,13 +104,17 @@ The RFC 9700 CLI smoke generated 41 candidates from sections 1–4. Its unfilled
 
 ## M1 exit checklist
 
-Checked on 17 November 2026. The live preflight found no provider keys. Campaign spend remains USD 0 and live token totals and latency are unavailable.
+Checked on 18 November 2026. The live roster probe passed 14 of 18 checks. All OpenAI and Anthropic combinations and both Gemini 3.5 Flash-Lite combinations passed. Gemini 4 Argon was rate-limited and the spend guard blocked its retry. Gemini 3.8 Flash returned server errors. Both models' high-effort checks were skipped after their low-effort failures.
+
+Five Gemini attempts retained USD 34.9568 in reservations because usage was unavailable. The remaining headroom was enough for the live toy once the guard used the OpenAI Responses request's enforced 4,096-token output limit. The guard still uses the configured input limit and retains the full reservation when usage is unknown. It stops further requests if a settled charge exceeds the reserved amount.
+
+The live RAG toy used the pinned local BGE-M3 checkpoint and changed executors from GPT-6.1 Sol to GPT-6 Luna. It completed four chunks in six physical OpenAI calls, with 5,032 input and 720 output tokens. The toy's metered upper estimate was USD 0.0085324 and the campaign total was USD 0.1193114, against the original USD 40 cap. A fresh replay with network sockets disabled matched all six recorded output files byte-for-byte. The checker reported three `unknown` findings with the current modal configuration.
 
 | # | Exit test | Evidence and status |
 | --- | --- | --- |
 | 1 | Inspect AI trial | Six-criterion report and reproducible offline cache trial above. Retention decision remains open. |
-| 2 | Contract probe | Blocked on credentials for all 18 model-effort combinations. Recorded in [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md). |
-| 3 | Replay | Scripted run matched byte-for-byte with network blocked and a cache miss raised. Actual live replay is pending. |
+| 2 | Contract probe | 14 of 18 combinations passed. Gemini 4 Argon and Gemini 3.8 Flash remain open. |
+| 3 | Replay | Scripted and live toy outputs matched their cache-only replays with network sockets disabled. The scripted test also verified a cache miss fails. |
 | 4 | Re-scoring | Independently re-scoring the saved toy translations reproduced the final findings. |
 | 5 | Failure handling | Tests exercise transient backoff, refusal and cut-off outcomes, and one JSON repair retry. |
 | 6 | Budget guard | At the token cap, the scripted run returned `budget_exhausted` and preserved and scored two chunks. |
@@ -119,10 +123,10 @@ Checked on 17 November 2026. The live preflight found no provider keys. Campaign
 | 9 | Memory interface | The RAG workflow passed the reusable memory contract. |
 | 10 | Delivered decisions | The eight toy prompts matched their logged decision IDs and versions. |
 | 11 | Scripted baseline | Four chunks completed, including executor and brief changes, revision search, and repairs. |
-| 12 | Live baseline | Blocked on credentials and the selected models passing their probes. |
+| 12 | Live baseline | Four chunks completed using the two probed OpenAI models and pinned BGE-M3. The checker reported three `unknown` findings. |
 | 13 | Repair budget | One experiment-level cap is enforced under two condition labels. The actual ledger arm will exercise the policy in M2. |
 | 14 | Secrets | The toy test scanned rendered prompts, cache, logs, and run artifacts for key-like strings. |
 | 15 | Boundaries | Import-linter passed. The toy ran from the three public episode files alone. |
 | 16 | Hygiene | Offline results and package coverage below. |
 
-`./scripts/check` reported `206 passed, 2 deselected in 27.99s`. Ruff, strict mypy, and the import contract passed. Branch coverage was providers `138/146 (94.5%)`, checker `64/66 (97.0%)`, and baseline `26/26 (100.0%)`. The live command reported `0/18 effort probes passed`, with 18 missing-credential results and zero provider attempts.
+`./scripts/check` reported `207 passed, 2 deselected in 34.47s`. Ruff, strict mypy, and the import contract passed. Branch coverage was providers `141/150 (94.0%)`, checker `64/66 (97.0%)`, and baseline `26/26 (100.0%)`.

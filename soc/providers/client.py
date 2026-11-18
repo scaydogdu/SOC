@@ -12,7 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from soc.providers.cache import ResponseCache, cache_key
+from soc.providers.cache import RETRYABLE_OUTCOMES, ResponseCache, cache_key
 from soc.providers.models import (
     Message,
     Mode,
@@ -83,6 +83,7 @@ class RunLimits(BaseModel):
 class Route:
     family: str
     provider: Provider
+    caps_billed_output: bool = False
 
 
 class _Throttle:
@@ -166,21 +167,30 @@ class ModelClient:
         if self.mode is not Mode.LIVE or recover:
             cached = self.cache.read_call(request.run_id, request.call_id, key)
             if (
+                self.mode is Mode.RECORD_MISSING
+                and not recover
+                and cached is not None
+                and cached.outcome in RETRYABLE_OUTCOMES
+            ):
+                cached = None
+            if (
                 cached is None
-                and self.mode is not Mode.LIVE
+                and self.mode is Mode.RECORD_MISSING
                 and self.tokens < self.limits.token_cap
             ):
                 cached = self.cache.read(key)
+                if cached is not None and cached.outcome in RETRYABLE_OUTCOMES:
+                    cached = None
         if cached is not None:
             reply = cached
             source = "cache"
             self.tokens += reply.input_tokens + reply.output_tokens
-        elif self.tokens >= self.limits.token_cap:
-            reply = RecordedReply(outcome=Outcome.BUDGET_EXHAUSTED, latency_seconds=0)
         elif self.mode is Mode.REPLAY:
             reply = RecordedReply(outcome=Outcome.CACHE_MISS, latency_seconds=0)
             self._log(request, key, price, reply, "cache", attempt=None)
             raise CacheMiss(f"no recorded response for {key}")
+        elif self.tokens >= self.limits.token_cap:
+            reply = RecordedReply(outcome=Outcome.BUDGET_EXHAUSTED, latency_seconds=0)
         else:
             reply = await self._live(request, parameters, key, price, secrets)
             source = "provider"
@@ -223,6 +233,14 @@ class ModelClient:
         start = monotonic()
         input_tokens = output_tokens = transient = attempt = 0
         repaired = retried_refusal = False
+        max_output_tokens = parameters.sampling.get("max_output_tokens")
+        output_bound = (
+            max_output_tokens
+            if route.caps_billed_output
+            and type(max_output_tokens) is int
+            and max_output_tokens > 0
+            else None
+        )
 
         while True:
             async with throttle.slots:
@@ -233,7 +251,10 @@ class ModelClient:
                 reservation = None
                 if self._spend_guard is not None:
                     reservation = self._spend_guard.reserve(
-                        request.run_id, request.call_id, request.model
+                        request.run_id,
+                        request.call_id,
+                        request.model,
+                        output_bound=output_bound,
                     )
                     if reservation is None:
                         reply = Reply(outcome=Outcome.BUDGET_EXHAUSTED)

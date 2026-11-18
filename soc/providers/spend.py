@@ -62,9 +62,16 @@ class SpendGuard:
                 "amount INTEGER NOT NULL, state TEXT NOT NULL)"
             )
 
-    def reserve(self, run_id: str, call_id: str, model: str) -> int | None:
+    def reserve(
+        self, run_id: str, call_id: str, model: str, *, output_bound: int | None = None
+    ) -> int | None:
         rate = self._rates[model]
-        amount = rate.charge(rate.max_input_tokens, rate.max_output_tokens)
+        if output_bound is not None and output_bound <= 0:
+            raise ValueError("output bound must be positive")
+        max_output = rate.max_output_tokens
+        if output_bound is not None:
+            max_output = min(max_output, output_bound)
+        amount = rate.charge(rate.max_input_tokens, max_output)
         with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("BEGIN IMMEDIATE")
             spent, breached = db.execute(
@@ -92,18 +99,20 @@ class SpendGuard:
         )
         with closing(sqlite3.connect(self.path)) as db, db:
             updated = db.execute(
-                "UPDATE charges SET amount = ?, state = ? "
-                "WHERE id = ? AND model = ? AND state = 'reserved'",
+                "UPDATE charges SET state = CASE WHEN ? OR ? > amount "
+                "THEN 'bound_exceeded' ELSE 'settled' END, amount = ? "
+                "WHERE id = ? AND model = ? AND state = 'reserved' RETURNING state",
                 (
+                    exceeded,
                     amount,
-                    "bound_exceeded" if exceeded else "settled",
+                    amount,
                     reservation,
                     model,
                 ),
-            )
-            if updated.rowcount != 1:
+            ).fetchone()
+            if updated is None:
                 raise RuntimeError("invalid or already settled spend reservation")
-        if exceeded:
+        if updated[0] == "bound_exceeded":
             raise SpendBoundError(
                 f"provider usage exceeded the configured bound for {model}"
             )

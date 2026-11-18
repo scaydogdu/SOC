@@ -79,6 +79,29 @@ def test_usage_over_bound_stops_the_campaign(tmp_path):
     assert guard.reserve("toy", "b", MODEL) is None
 
 
+def test_request_output_bound_allows_smaller_reservation(tmp_path):
+    path = tmp_path / "spend.sqlite"
+    guard = SpendGuard(path, Decimal("0.92"), {MODEL: RATE})
+    assert guard.reserve("toy", "a", MODEL) is None
+    reservation = guard.reserve("toy", "a", MODEL, output_bound=20)
+    assert reservation is not None
+    reopened = SpendGuard(path, Decimal("0.92"), {MODEL: RATE})
+    assert reopened.summary()["unsettled_reservations_usd"] == 0.92
+    with pytest.raises(SpendBoundError):
+        reopened.settle(
+            reservation,
+            MODEL,
+            Reply(
+                outcome=Outcome.OK,
+                input_tokens=900,
+                output_tokens=21,
+                usage_reported=True,
+            ),
+        )
+    assert reopened.summary()["bound_exceeded"] is True
+    assert reopened.reserve("toy", "b", MODEL, output_bound=20) is None
+
+
 def test_spend_cap_is_checked_before_each_physical_attempt(tmp_path):
     from soc.orchestrator.live import ProbeAnswer
 
