@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -199,6 +199,46 @@ def _unpack(row: sqlite3.Row) -> dict[str, JsonValue]:
     return data
 
 
+def _episode_fingerprint(episode: Episode, chunk_id_base: ChunkIdBase) -> str:
+    data = episode.model_dump(mode="json")
+    if chunk_id_base != 1:
+        data = {"episode": data, "chunk_id_base": chunk_id_base}
+    return _digest(data)
+
+
+class LedgerIntegrityError(ValueError):
+    def __init__(
+        self, seq: int, reason: str = "hash chain verification failed"
+    ) -> None:
+        self.seq = seq
+        super().__init__(f"ledger sequence {seq}: {reason}")
+
+
+def _verified_rows(
+    rows: Iterable[sqlite3.Row], run_id: str
+) -> Iterator[dict[str, JsonValue]]:
+    previous: JsonValue = GENESIS
+    for seq, row in enumerate(rows, 1):
+        try:
+            data = _unpack(row)
+            stored = data.pop("hash")
+            valid = (
+                data["seq"] == seq
+                and data["run_id"] == run_id
+                and data["prev_hash"] == previous
+                and row["actor"] == _canonical(data["actor"])
+                and row["payload"] == _canonical(data["payload"])
+                and stored == _digest(data)
+            )
+        except ValueError as exc:
+            raise LedgerIntegrityError(seq) from exc
+        if not valid:
+            raise LedgerIntegrityError(seq)
+        data["hash"] = stored
+        previous = stored
+        yield data
+
+
 class Ledger:
     """One SQLite run. Each process opens its own handle."""
 
@@ -226,11 +266,7 @@ class Ledger:
         self._chunk_sites: dict[str, frozenset[str]] = {}
         self._scope_keys: dict[str, list[str]] = {}
         if self._episode is not None:
-            episode_data = self._episode.model_dump(mode="json")
-            # Preserve the existing fingerprint for the default convention.
-            if chunk_id_base != 1:
-                episode_data = {"episode": episode_data, "chunk_id_base": chunk_id_base}
-            self._episode_hash = _digest(episode_data)
+            self._episode_hash = _episode_fingerprint(self._episode, chunk_id_base)
             self._chunk_sites = {
                 f"chunk-{position}": frozenset(chunk.sentence_ids)
                 for position, chunk in enumerate(
@@ -380,25 +416,13 @@ class Ledger:
 
     def verify(self) -> int | None:
         """Return the expected sequence of the first hash-chain break."""
-        previous = GENESIS
-        for seq, row in enumerate(
-            self._db.execute("SELECT * FROM events ORDER BY seq"), 1
-        ):
-            try:
-                data = _unpack(row)
-                stored = data.pop("hash")
-                if (
-                    data["seq"] != seq
-                    or data["run_id"] != self._run_id
-                    or data["prev_hash"] != previous
-                    or row["actor"] != _canonical(data["actor"])
-                    or row["payload"] != _canonical(data["payload"])
-                    or stored != _digest(data)
-                ):
-                    return seq
-            except ValueError:
-                return seq
-            previous = stored
+        try:
+            for _ in _verified_rows(
+                self._db.execute("SELECT * FROM events ORDER BY seq"), self._run_id
+            ):
+                pass
+        except LedgerIntegrityError as exc:
+            return exc.seq
         return None
 
     def rebuild(self, *, through: int | None = None) -> Projection:

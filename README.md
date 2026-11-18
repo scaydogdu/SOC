@@ -173,6 +173,28 @@ uv run --locked --offline python -m eval.brief_gap /path/to/soc-run \
   --arm soc --sentence-id 9700-4.2-s03
 ```
 
+## Commitment timeline
+
+Export a recorded SOC ledger and its public episode as one offline HTML page. The exporter verifies the hash chain and episode binding through a read-only SQLite connection before writing either output.
+
+```bash
+uv run --locked --offline python -m analysis.timeline /path/to/soc-run /path/to/public-episode \
+  --out timeline.html --json timeline.json
+```
+
+Use `--label` for runs whose metadata lacks a display label. The [scripted example](docs/examples/commitment-timeline.html) shows the decision matrix, build and version details, ledger strip and filterable event log.
+
+JSON schema version 1 has these top-level fields.
+
+| Field | Contents |
+| --- | --- |
+| `schema_version`, `run` | Schema version, run and episode IDs, label, head hash, final sequence and chunk ID base |
+| `schedule` | Public executor and brief boundaries and their recorded event sequences |
+| `chunks` | Public sentences and scope keys, successive builds, decision versions used, use sites, gate verdicts, stale marks and detections |
+| `commitments`, `tombstones` | Commitment identity, authority and subject, version records and ballots, plus tombstone records |
+| `events`, `unplaced_events` | Sequence-ordered event records with their JSON-LD graphs and contexts omitted, plus placement warnings |
+| `final_stale`, `summary` | Scheduled chunks whose latest build was marked stale and counts derived from the recorded events |
+
 ## Episode authoring
 
 Create a draft from an inclusive RFC section range. The generator makes one chunk per section, retains stable source IDs, and prints candidate scope keys. Add `--glossary FILE` to include known terms. Fill the brief, events, preferences, seeds, and affected sites in the draft before sealing it.

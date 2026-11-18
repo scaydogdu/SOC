@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>SOC Commitment Timeline</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f6f5f0; --surface: #fcfbf8; --sunk: #eceae2; --line: #d6d2c6;
+  --ink: #14213d; --muted: #515e70; --accent: #a04518; --context: #2f5f9e;
+  --good: #246440; --good-bg: #e2efe6; --warn: #794d0b; --warn-bg: #f6ebd6;
+  --bad: #9e2626; --bad-bg: #f6e0de; --vote: #716296;
+  --mono: ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #10172a; --surface: #172038; --sunk: #222b42; --line: #3b4967;
+    --ink: #eef1f7; --muted: #b9c4d6; --accent: #f08a4b; --context: #95b9e9;
+    --good: #85d6a7; --good-bg: #1b3428; --warn: #f2c580; --warn-bg: #3a2e17;
+    --bad: #ffa5a3; --bad-bg: #3d1f24; --vote: #c1aff0;
+  }
+}
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, sans-serif }
+main { max-width: 1320px; padding: 32px 22px 52px; margin: auto; display: grid; gap: 24px }
+h1,h2,h3,p { margin: 0 }
+h1 { font-size: clamp(1.85rem, 5vw, 2.5rem); letter-spacing: -.045em; line-height: 1.15 }
+h2 { font-size: 1.14rem }
+h3 { font-size: 1rem }
+header { display: grid; gap: 12px }
+.meta, .stats, .filters, .legend { display: flex; flex-wrap: wrap; gap: 8px 16px }
+.meta { font-size: .85rem; color: var(--muted); align-items: center }
+.hash { font-family: var(--mono); overflow-wrap: anywhere }
+.meta .hash { font-size: .71rem }
+.stat { min-width: 86px; flex: 1; border-top: 1px solid var(--line); padding-top: 6px }
+.stat strong { display: block; font-size: 1.55rem; font-variant-numeric: tabular-nums }
+.stat span { font-size: .8rem; color: var(--muted) }
+.panel { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); min-width: 0 }
+.work { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 345px); gap: 20px; align-items: start }
+.work .panel > h2, .strip-panel h2, .log-panel h2 { padding: 14px 16px 10px }
+.scroll { overflow: auto; max-width: 100%; overscroll-behavior-inline: contain }
+table { width: 100%; border-collapse: collapse; text-align: left }
+th, td { border-top: 1px solid var(--line); padding: 8px 11px; vertical-align: top }
+.matrix { min-width: 625px }
+.matrix th, .matrix td { min-width: 122px; position: relative }
+.matrix th:first-child { min-width: 176px }
+.matrix thead th { padding-top: 33px }
+.matrix thead .edge-label { position: absolute; left: 8px; top: 5px; font: 600 11px/1.2 var(--mono); color: var(--context); white-space: nowrap }
+.matrix thead .brief .edge-label { color: var(--accent) }
+.matrix .executor { border-left: 2px dashed var(--context) }
+.matrix .brief { border-left: 2px solid var(--accent) }
+.matrix .after-last { border-right: 2px solid var(--accent) }
+button { font: inherit; color: inherit; cursor: pointer }
+.select { display: block; width: 100%; border: 0; border-radius: 5px; text-align: left; padding: 4px; background: none }
+.select:hover, .select[aria-pressed="true"] { background: var(--sunk) }
+.select[aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--accent) }
+button:focus-visible, .scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px }
+.muted { color: var(--muted) }
+.small { font-size: .83rem }
+.badge { display: inline-block; border: 1px solid transparent; border-radius: 4px; padding: 3px 5px; font: 600 11px/1.25 var(--mono); margin: 2px 3px 2px 0 }
+.badge.current { color: var(--good); background: var(--good-bg) }
+.badge.stale, .badge.label { color: var(--warn); background: var(--warn-bg) }
+.badge.blocked { color: var(--bad); background: var(--bad-bg) }
+.badge.pending { color: var(--muted); background: var(--sunk) }
+.badge.latest { border-color: currentColor }
+.legend { padding: 8px 12px; border-top: 1px solid var(--line); align-items: center }
+.detail { padding: 15px 16px; display: grid; gap: 10px; max-height: 75vh; overflow: auto; position: sticky; top: 16px; overflow-wrap: anywhere }
+.detail article { border-top: 1px solid var(--line); padding-top: 8px }
+.detail ul { margin: 4px 0; padding-left: 20px }
+.details-line { margin-top: 4px }
+.strip-panel .scroll { margin: 2px 16px 16px }
+.strip { min-width: max-content; min-height: 39px; display: flex; align-items: end; gap: 3px; border-bottom: 1px solid var(--line) }
+.tick { width: 5px; height: 16px; border-radius: 3px 3px 0 0; background: var(--muted) }
+.kind-change { background: var(--context) }
+.kind-brief { background: var(--accent) }
+.kind-ruling { background: var(--ink) }
+.kind-vote { background: var(--vote) }
+.kind-build { background: var(--good) }
+.kind-stale { background: var(--warn) }
+.tick.kind-change, .tick.kind-brief, .tick.kind-block { height: 32px }
+.kind-block { background: var(--bad) }
+.kind-other { background: var(--muted) }
+.filters { padding: 0 16px 10px; gap: 6px }
+.filter, .clear { border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font-size: .8rem; padding: 3px 9px }
+.filter[aria-pressed="true"] { background: var(--ink); color: var(--surface) }
+.scope { padding: 0 16px 10px; color: var(--muted); font-size: .87rem }
+.log { min-width: 640px }
+.log td:nth-child(2) { white-space: nowrap }
+.log td:nth-child(4) { overflow-wrap: anywhere }
+.unplaced { padding: 12px 16px; background: var(--warn-bg); color: var(--warn); border-radius: 10px }
+.unplaced ul { margin: 4px 0 0; padding-left: 18px }
+@media (max-width: 850px) {
+  main { padding: 20px 12px 30px; gap: 17px }
+  .work { grid-template-columns: minmax(0, 1fr) }
+  .detail { position: static; max-height: none }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Commitment timeline</h1>
+    <div class="meta" id="metadata"></div>
+    <div class="stats" id="summary"></div>
+  </header>
+  <div class="work">
+    <section class="panel" aria-labelledby="matrix-title">
+      <h2 id="matrix-title">Decision use by chunk</h2>
+      <div class="scroll" tabindex="0" aria-label="Decision matrix">
+        <table id="matrix" class="matrix"></table>
+      </div>
+      <div class="legend small">
+        <span class="badge current">Current</span><span class="badge stale">Stale</span>
+        <span class="badge blocked">Blocked</span><span class="badge pending latest">Last build using this decision</span>
+      </div>
+    </section>
+    <aside class="panel detail" id="detail" aria-live="polite"></aside>
+  </div>
+  <section class="panel strip-panel" aria-labelledby="strip-title">
+    <h2 id="strip-title">Ledger sequence</h2>
+    <div class="scroll" tabindex="0" aria-label="Event sequence"><div id="strip" class="strip"></div></div>
+  </section>
+  <section class="unplaced" id="unplaced" hidden></section>
+  <section class="panel log-panel" aria-labelledby="log-title">
+    <h2 id="log-title">Event log</h2>
+    <div id="filters" class="filters" aria-label="Event type filters"></div>
+    <div id="scope" class="scope" hidden></div>
+    <div class="scroll" tabindex="0" aria-label="Ledger event log">
+      <table class="log">
+        <thead><tr><th>Seq</th><th>Event</th><th>Actor</th><th>What happened</th><th>Hash</th></tr></thead>
+        <tbody id="log"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<script type="application/json" id="data">@@TIMELINE_DATA@@</script>
+<script>
+"use strict";
+const D = JSON.parse(document.getElementById("data").textContent);
+const $ = id => document.getElementById(id);
+const node = (tag, text, cls) => {
+  const e = document.createElement(tag);
+  if (text !== undefined && text !== null) e.textContent = text;
+  if (cls) e.className = cls;
+  return e;
+};
+const line = (root, title, value) => {
+  const p = node("p", null, "details-line");
+  p.append(node("strong", title + " "), node("span", value ?? "—"));
+  root.append(p);
+};
+const badge = (text, status, latest = false) =>
+  node("span", text, "badge " + status + (latest ? " latest" : ""));
+const commitmentMap = new Map(D.commitments.map(c => [c.id, c]));
+const chunkMap = new Map(D.chunks.map(c => [c.id, c]));
+const eventMap = new Map(D.events.map(e => [e.seq, e]));
+const chunkLabel = id => "Chunk " + chunkMap.get(id).position;
+const dataOf = e => e.payload?.data ?? {};
+const array = value => Array.isArray(value) ? value : [];
+let selection = null;
+const activeTypes = new Set(D.events.map(e => e.type).filter(t => t !== "VoteCast"));
+const selectable = [];
+
+function describe(e) {
+  const d = dataOf(e);
+  switch (e.type) {
+    case "ChunkBuilt": return (e.chunk_id ?? "Unknown chunk") + " build " + (d.build_number ?? 1) + " read sequence " + d.ledger_version;
+    case "GateDecision": return (d.accepted ? "Passed. " : "Blocked. ") + (d.reason ?? "No gate reason");
+    case "StaleMarked": return array(d.chunk_ids).join(", ") + " flagged after a change to " + (e.commitment_id ?? "a decision");
+    case "StaleDetected": return e.chunk_id + " build " + d.build_number + " detected at " + d.path;
+    case "VoteCast": return d.voter + (d.choice == null ? " abstained" : " voted for " + d.choice);
+    case "Tombstoned": return "Retired " + d.rendering + " from " + array(d.scope).join(", ");
+    case "ExecutorRebound": return d.old_model + " handed over to " + d.new_model;
+    case "BriefChanged": return Object.keys(d.clauses ?? {}).join(", ") || "Brief change recorded";
+    case "ConflictRaised": return "Conflicting write for " + (e.commitment_id ?? d.candidate_id ?? "a decision");
+    case "FlagResolved": return d.trace ? d.trace.decision_kind + " resolved at " + d.trace.consistency : "Flag resolved";
+    case "PrincipalAnswered": return "Principal answered " + d.question_id;
+    default: return d.reason ?? (e.new_version ? e.commitment_id + " v" + e.new_version : "Recorded event");
+  }
+}
+
+function eventColor(e) {
+  if (e.type === "GateDecision" && dataOf(e).accepted === false) return "kind-block";
+  if (e.type === "ExecutorRebound") return "kind-change";
+  if (e.type === "BriefChanged") return "kind-brief";
+  if (e.type === "ChunkBuilt") return "kind-build";
+  if (e.type === "VoteCast") return "kind-vote";
+  if (e.type.startsWith("Stale")) return "kind-stale";
+  if (e.new_version || e.type === "Tombstoned") return "kind-ruling";
+  return "kind-other";
+}
+
+function selectButton(cell, target, content) {
+  const button = node("button", null, "select");
+  button.type = "button";
+  button.append(...content);
+  button.addEventListener("click", () => select(target));
+  selectable.push([button, target]);
+  cell.append(button);
+}
+function boundary(cell, chunk, heading) {
+  const labels = [];
+  for (const [name, position, type] of [
+    ["Executor", D.schedule.executor_change_after, "ExecutorRebound"],
+    ["Brief", D.schedule.brief_change_after, "BriefChanged"],
+  ]) {
+    if (chunk.position === position + 1) {
+      const changed = D.schedule.observed_changes.map(seq => eventMap.get(seq)).find(e => e.type === type);
+      cell.classList.add(name.toLowerCase());
+      labels.push(name + (changed ? " · #" + changed.seq : " · scheduled"));
+    } else if (position === D.chunks.length && chunk.position === position) {
+      cell.classList.add("after-last");
+      labels.push(name + " after this chunk");
+    }
+  }
+  if (heading && labels.length) cell.append(node("span", labels.join(" / "), "edge-label"));
+}
+
+function matrix() {
+  const head = $("matrix").createTHead().insertRow();
+  head.append(node("th", "Decision"));
+  for (const c of D.chunks) {
+    const cell = node("th");
+    cell.scope = "col";
+    boundary(cell, c, true);
+    selectButton(cell, {chunk: c.id}, [node("strong", chunkLabel(c.id)), node("div", c.builds.length + (c.builds.length === 1 ? " build" : " builds"), "muted small")]);
+    head.append(cell);
+  }
+  const body = $("matrix").createTBody();
+  const gateRow = body.insertRow();
+  gateRow.append(node("th", "Gate result"));
+  for (const c of D.chunks) {
+    const cell = gateRow.insertCell();
+    boundary(cell, c, false);
+    selectButton(cell, {chunk: c.id}, c.builds.length ? c.builds.map((b, i) => {
+      const gate = b.gate_decisions.at(-1);
+      const status = gate ? (gate.accepted ? "current" : "blocked") : "pending";
+      return badge("b" + b.build_number + " " + (gate ? (gate.accepted ? "pass" : "block") : "unchecked"), status, i === c.builds.length - 1);
+    }) : [node("span", "No builds", "muted small")]);
+  }
+  for (const d of D.commitments) {
+    const row = body.insertRow();
+    const head = node("th");
+    head.scope = "row";
+    selectButton(head, {decision: d.id}, [
+      node("strong", d.id), node("div", d.subject?.key ?? d.authority ?? "", "muted small"),
+      node("div", d.versions.at(-1).version.rendering, "small"),
+    ]);
+    row.append(head);
+    for (const c of D.chunks) {
+      const cell = row.insertCell();
+      boundary(cell, c, false);
+      const uses = c.builds.flatMap(build =>
+        build.uses.filter(use => use.commitment_id === d.id).map(use => [build, use.version]));
+      const badges = uses.map(([b, version], i) => {
+        const status = b.statuses[d.id];
+        return badge("b" + b.build_number + "·v" + version + " " + status, status, i === uses.length - 1);
+      });
+      selectButton(cell, {decision: d.id, chunk: c.id}, badges.length ? badges : [node("span", "Not used", "muted small")]);
+    }
+  }
+}
+
+function decisionDetail(root, d) {
+  root.append(node("h2", d.id));
+  line(root, "Subject", d.subject ? d.subject.kind + " · " + d.subject.key : null);
+  line(root, "Authority", d.authority ?? d.owner);
+  for (const row of d.versions) {
+    const v = row.version;
+    const card = node("article");
+    card.append(node("h3", "Version " + v.version + " · " + v.rendering));
+    line(card, "Status", [v.state, v.consistency, v.strength].join(" · "));
+    line(card, "Valid sequence", "#" + v.valid_from + " to " + (v.valid_until == null ? "open" : "#" + v.valid_until + " (exclusive)"));
+    line(card, "Reason", row.reason);
+    line(card, "Evidence", v.evidence.join(", ") || "None recorded");
+    for (const cite of row.brief_citations) line(card, cite.clause_id, cite.text);
+    for (const ballot of row.ballots) {
+      const status = ballot.status === "dissent" ? "blocked" : ballot.status === "support" ? "current" : "pending";
+      card.append(badge(ballot.voter + " · " + ballot.status + (ballot.choice === null ? "" : " · " + ballot.choice), status));
+    }
+    for (const tombstone of D.tombstones.filter(t => t.commitment_id === d.id && t.version === v.version)) {
+      line(card, "Tombstone #" + tombstone.seq, tombstone.rendering + " · " + (tombstone.sentence_ids ?? tombstone.scope).join(", "));
+    }
+    root.append(card);
+  }
+}
+
+function chunkDetail(root, chunk, decision) {
+  root.append(node("h2", decision ? decision + " in " + chunkLabel(chunk.id) : chunkLabel(chunk.id)));
+  const builds = decision ? chunk.builds.filter(b => b.uses.some(use => use.commitment_id === decision)) : chunk.builds;
+  const sentences = new Map(chunk.sentences.map(s => [s.id, s]));
+  if (!decision) for (const sentence of chunk.sentences) line(root, sentence.id, sentence.text);
+  if (builds.length === 0) root.append(node("p", decision ? "Not used in this chunk." : "No recorded builds.", "muted"));
+  for (const b of builds) {
+    const card = node("article");
+    card.append(node("h3", "Build " + b.build_number));
+    line(card, "Ledger snapshot", "#" + b.ledger_version);
+    line(card, "Versions used", b.uses.map(use => use.commitment_id + " v" + use.version).join(", ") || "None");
+    if (decision) {
+      const sites = b.use_sites.filter(site => site.ref.commitment_id === decision);
+      for (const site of sites) line(card, site.sentence_id, sentences.get(site.sentence_id)?.text ?? "Source sentence unavailable");
+      if (!sites.length) line(card, "Use sites", "No sentence-level use was recorded");
+    }
+    for (const gate of b.gate_decisions) line(card, "Gate #" + gate.seq, (gate.accepted ? "Passed. " : "Blocked. ") + gate.reason);
+    for (const mark of b.stale_marks) line(card, "Stale #" + mark.seq, mark.commitment_id);
+    for (const detection of b.detections) line(card, "Detection #" + detection.seq, detection.path);
+    line(card, "Output reference", b.output_ref);
+    root.append(card);
+  }
+}
+
+const related = new Map(D.events.map(e => [e.seq, {
+  chunks: new Set([e.chunk_id, ...array(dataOf(e).chunk_ids)].filter(Boolean)),
+  decisions: new Set([e.commitment_id, ...array(dataOf(e).overlaps).map(x => x.commitment_id)].filter(Boolean)),
+}]));
+for (const c of D.chunks) for (const b of c.builds) {
+  for (const entry of [b, ...b.gate_decisions, ...b.stale_marks, ...b.detections]) {
+    const r = related.get(entry.seq);
+    r.chunks.add(c.id);
+    for (const use of b.uses) {
+      if (!entry.stale_marks && entry.commitment_id && entry.commitment_id !== use.commitment_id) continue;
+      r.decisions.add(use.commitment_id);
+    }
+  }
+}
+
+function renderLog() {
+  const log = $("log");
+  log.replaceChildren();
+  for (const e of D.events) {
+    const link = related.get(e.seq);
+    const decisionMatch = !selection?.decision || link.decisions.has(selection.decision);
+    const chunkMatch = !selection?.chunk || link.chunks.has(selection.chunk) ||
+      Boolean(selection.decision && decisionMatch && link.chunks.size === 0);
+    if (!activeTypes.has(e.type) || !decisionMatch || !chunkMatch) continue;
+    const row = log.insertRow();
+    row.dataset.seq = e.seq;
+    for (const value of [e.seq, e.type, e.actor?.agent ?? "—", describe(e), e.hash.slice(0, 12)]) {
+      row.insertCell().textContent = value;
+    }
+  }
+  $("scope").hidden = !selection;
+  if (selection) {
+    const clear = node("button", "Show all", "clear");
+    clear.addEventListener("click", () => select(null));
+    $("scope").replaceChildren(
+      node("span", [selection.decision, selection.chunk && chunkLabel(selection.chunk)].filter(Boolean).join(" · ") + " "), clear);
+  }
+}
+
+function select(target) {
+  selection = target;
+  for (const [btn, t] of selectable) btn.setAttribute("aria-pressed", String(t.chunk === target?.chunk && t.decision === target?.decision));
+  const detail = $("detail");
+  detail.replaceChildren();
+  if (target?.chunk) chunkDetail(detail, chunkMap.get(target.chunk), target.decision);
+  else if (target?.decision) decisionDetail(detail, commitmentMap.get(target.decision));
+  else {
+    detail.append(node("h2", "Run details"));
+    line(detail, "Executor change", "After chunk " + D.schedule.executor_change_after);
+    line(detail, "Brief change", "After chunk " + D.schedule.brief_change_after);
+    line(detail, "Stale at end", D.final_stale.map(chunkLabel).join(", ") || "None");
+    detail.append(node("p", "Select a decision, chunk, or version cell to inspect its history.", "muted small"));
+  }
+  renderLog();
+}
+
+const meta = $("metadata");
+meta.append(node("span", "Run " + D.run.run_id), node("span", "Episode " + D.run.episode_id),
+  node("span", "Sequence " + D.run.final_sequence), node("span", "Head " + D.run.head_hash, "hash"));
+if (D.run.label) meta.append(badge(D.run.label, "label"));
+const summaries = [
+  ["decisions", "Decisions"], ["chunks", "Chunks"], ["events", "Events"], ["revisions", "Revisions"],
+  ["stale_builds", "Builds flagged stale"], ["gate_blocks", "Gate blocks"],
+  ["final_stale", "Chunks stale at end"], ["tombstones", "Tombstones"],
+];
+for (const [key, label] of summaries) {
+  const stat = node("div", null, "stat");
+  stat.append(node("strong", D.summary[key]), node("span", label));
+  $("summary").append(stat);
+}
+for (const event of D.events) {
+  const tick = node("span", null, "tick " + eventColor(event));
+  tick.title = "#" + event.seq + " " + event.type + " · " + describe(event);
+  $("strip").append(tick);
+}
+if (D.unplaced_events.length) {
+  const panel = $("unplaced");
+  panel.hidden = false;
+  panel.append(node("h2", "Unplaced events"));
+  const items = node("ul");
+  for (const entry of D.unplaced_events) items.append(node("li", "#" + entry.seq + " " + entry.type + " · " + entry.reason));
+  panel.append(items);
+}
+for (const type of [...new Set(D.events.map(e => e.type))].sort()) {
+  const button = node("button", type, "filter");
+  button.setAttribute("aria-pressed", String(activeTypes.has(type)));
+  button.addEventListener("click", () => {
+    if (activeTypes.has(type)) activeTypes.delete(type);
+    else activeTypes.add(type);
+    button.setAttribute("aria-pressed", String(activeTypes.has(type)));
+    renderLog();
+  });
+  $("filters").append(button);
+}
+matrix();
+select(null);
+</script>
+</body>
+</html>

@@ -176,3 +176,38 @@ baseline: 34/34 branches (100.0%)
 ```
 
 M2 still requires a live episode in every SOC condition. No provider family was configured in this environment at verification time. The existing campaign's effort probes and spend cap remain the launch controls.
+
+## Commitment timeline export
+
+`uv run --locked --offline python -m analysis.timeline RUN_DIR EPISODE_DIR --out PAGE.html --json DATA.json` exports schema version 1. Supply `--label` to label a run whose manifest lacks a label. The [scripted toy page](docs/examples/commitment-timeline.html) was generated from the scheduled SOC runner with deterministic fixture timestamps and event IDs.
+
+The exporter opens one read-only SQLite snapshot. It checks the existing event hashes and the public episode binding before writing the page or JSON. The page embeds its data and uses system fonts, inline CSS, and inline JavaScript. Unknown event types and events with unresolved placement remain visible in the log and the unplaced-events note.
+
+Display choices
+
+- The first approved version fixes each commitment row's position. Chunk columns follow the public schedule and the ID base pinned by the ledger.
+- A build's matrix cell becomes blocked when a recorded refusal follows that commitment's stale mark. The gate header shows the latest verdict for each build and the detail panel retains all verdicts. Historical verdicts without a build number attach to the build current at the time.
+- Missing sentence-level use records display as missing. An episode without a manifest ID uses a short fingerprint of the public episode. The JSON omits repeated provenance graphs and contexts.
+
+`test_timeline_scripted_toy_golden_round_trip_and_read_only` compares the committed JSON golden and example page, checks the ledger file hash, and verifies the mode of the SQLite connection. The other timeline tests cover corruption, episode mismatch, the four matrix statuses, unknown and unplaced events, legacy gates and ballots, safe output paths, and zero-based chunk IDs.
+
+The headless Chrome test `test_timeline_chrome_phone_interactions_without_script_errors` passed locally. It runs under the nightly marker so the standard suite can run without Chrome. It checks phone-width scrolling, matrix and detail selection, log clearing, vote filtering, and visibility of an unknown event.
+
+`./scripts/check` exited successfully.
+
+```text
+All checks passed!
+100 files already formatted
+Success: no issues found in 53 source files
+Contracts: 1 kept, 0 broken.
+270 passed, 3 deselected in 42.69s
+timeline: 35/36 branches (97.2%)
+ledger: 352/382 branches (92.1%)
+episode: 52/54 branches (96.3%)
+segmenter: 67/68 branches (98.5%)
+providers: 150/160 branches (93.8%)
+checker: 66/68 branches (97.1%)
+baseline: 34/34 branches (100.0%)
+```
+
+A fresh interactive zsh session now sees all three provider families. Live M2 remains open pending the spend-guard changes and campaign checks in the new live handoff.
