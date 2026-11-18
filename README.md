@@ -130,6 +130,14 @@ Keep the campaign directory to reuse its SQLite response cache and spend ledger.
 
 `config/m1-live.yaml` sets a shared USD 40 ceiling on standard text-generation charges. Before each physical attempt, including retries, the persistent spend ledger reserves at the configured model limits. OpenAI Responses requests with an explicit output limit use the smaller of the request and model output limits. Provider-reported usage settles the reservation at the configured price ceilings. A call with unknown usage retains its reservation. These figures are local upper estimates of token charges. Use the provider invoices to reconcile billed spend.
 
+## Scripted SOC episode runner
+
+`soc.orchestrator.ledger_runner.run_ledger_episode` runs a validated public episode with an injected async chunk worker. `LedgerRunSpec` configures the resolution mode, executor models, and a concurrency limit of one to three chunks. Scheduled approvals, the executor rebind, and the brief change form barriers. The worker receives the active brief, commitment versions, repair hints and the executor handover. It returns a `WorkerDraft` with the ledger sequence it used or a provider outcome. The runner captures uses at that sequence, persists builds, applies the repair limit, and gates the final outputs. Reopening the same run directory resumes from recorded builds and gates.
+
+`run_triad` accepts `cross_examination`, `open_discussion`, or `principal_only`. Open discussion gives each participant one opportunity to comment before the vote. Principal-only routes each draft difference to the principal. Cross-examination can read current evidence before validating each answer.
+
+The trusted launcher passes an isolated YAML file containing an `answers` map from question text to answer text to `PrincipalSimulator`. Conditions for the same episode share its private SQLite answer cache. The simulator normalizes questions and logs the single answer delivered for each logical request. A trusted callback can answer questions absent from the key. Without a matching entry or callback answer, the simulator raises `UnansweredQuestion`. Keep the key and answer cache outside worker inputs.
+
 ## Episode authoring
 
 Create a draft from an inclusive RFC section range. The generator makes one chunk per section, retains stable source IDs, and prints candidate scope keys. Add `--glossary FILE` to include known terms. Fill the brief, events, preferences, seeds, and affected sites in the draft before sealing it.

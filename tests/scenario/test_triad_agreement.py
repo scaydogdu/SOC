@@ -144,3 +144,74 @@ def test_agreement_table_requires_all_types_and_reserves_brief_for_principal():
         AgreementRules.model_validate(
             {"rules": {**default.rules, "brief_gap": "QUORUM"}}
         )
+
+
+@pytest.mark.parametrize("mode", ["open_discussion", "principal_only"])
+def test_form_modes_share_alignment_and_apply_their_configured_resolution(mode):
+    episode = load_runtime(TOY)
+    sentence = episode.source[0]
+    chunk = ChunkInput(1, (sentence,))
+    participants = ("left", "right", "reviewer")
+    calls = []
+
+    def draft(worker, text):
+        return Draft(
+            worker,
+            ChunkOutput(sentences=[Translation(sentence_id=sentence.id, text=text)]),
+        )
+
+    async def discuss(speaker, examination):
+        assert examination.turns == ()
+        assert (
+            tuple(r.speaker for r in examination.discussion)
+            == participants[: len(calls)]
+        )
+        calls.append(("discussion", speaker))
+        return f"{speaker} recommends the second draft"
+
+    async def classify(examination):
+        assert not examination.turns
+        assert len(examination.discussion) == (3 if mode == "open_discussion" else 0)
+        return "term"
+
+    async def vote(speaker, examination, kind):
+        assert mode == "open_discussion"
+        assert len(examination.discussion) == 3 and kind == "term"
+        calls.append(("vote", speaker))
+        return Ballot(choice="second")
+
+    async def settle(principal, examination, kind):
+        assert mode == "principal_only" and kind == "term"
+        calls.append(("principal", principal))
+        return PrincipalResolution(rendering="principal translation")
+
+    result = asyncio.run(
+        run_triad(
+            chunk,
+            draft("left", "first translation"),
+            draft("right", "second translation"),
+            source=episode.source,
+            brief=episode.brief,
+            commitments={},
+            reviewer="reviewer",
+            principal="client",
+            agreement=read_yaml(CONFIG, AgreementRules),
+            classify=classify,
+            vote=vote,
+            settle=settle,
+            mode=mode,
+            discuss=discuss,
+        )
+    )
+    (decision,) = result.decisions
+    if mode == "open_discussion":
+        assert calls == [
+            (step, name) for step in ("discussion", "vote") for name in participants
+        ]
+        assert decision.required == decision.consistency == "QUORUM"
+        assert result.draft.sentences[0].text == "second translation"
+    else:
+        assert calls == [("principal", "client")]
+        assert decision.required == decision.consistency == "SERIAL"
+        assert decision.ballots == ()
+        assert result.draft.sentences[0].text == "principal translation"

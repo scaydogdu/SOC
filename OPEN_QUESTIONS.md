@@ -16,4 +16,6 @@
 - Confirm the executor successor policy. The plan defaults to the same family’s small model and rotates the family.
 - Confirm the number of Pilot B episodes, the main-run host, and whether to register publicly on OSF.
 
+- Confirm how frozen episodes should supply question aliases or a principal fallback for their private preferences. The simulator currently takes an isolated question-to-answer map and an optional trusted fallback callback.
+
 The five M2 design decisions approved on 11 November 2026 are recorded in [Section B of the second M0 review](REVIEW_M0_2.md#b-design-questions--decided-by-can-on-11-november-2026).

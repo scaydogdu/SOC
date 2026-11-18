@@ -51,13 +51,21 @@ class Turn:
 
 
 @dataclass(frozen=True)
+class Remark:
+    speaker: str
+    text: str
+
+
+@dataclass(frozen=True)
 class Examination:
     difference: Difference
     turns: tuple[Turn, ...]
+    discussion: tuple[Remark, ...] = ()
 
 
 type Review = Callable[[Difference, tuple[Turn, ...]], Awaitable[Challenge | None]]
 type Respond = Callable[[Difference, Challenge], Awaitable[Answer | None]]
+type ReadEvidence = Callable[[], tuple[Brief, Mapping[str, CommitmentVersion]]]
 
 
 def _aligned(draft: Draft, expected: set[str]) -> dict[str, str]:
@@ -71,6 +79,24 @@ def _aligned(draft: Draft, expected: set[str]) -> dict[str, str]:
     return sentences
 
 
+def align_drafts(
+    chunk: ChunkInput, first: Draft, second: Draft
+) -> tuple[Difference, ...]:
+    """Return differences in source order after checking both drafts."""
+    if first.worker == second.worker or not all(
+        worker.strip() for worker in (first.worker, second.worker)
+    ):
+        raise ValueError("draft alignment requires two distinct draft workers")
+    sentence_ids = [sentence.id for sentence in chunk.sentences]
+    expected = set(sentence_ids)
+    left, right = _aligned(first, expected), _aligned(second, expected)
+    return tuple(
+        Difference(sid, left[sid], right[sid])
+        for sid in sentence_ids
+        if left[sid] != right[sid]
+    )
+
+
 async def examine_chunk(
     chunk: ChunkInput,
     first: Draft,
@@ -81,32 +107,28 @@ async def examine_chunk(
     commitments: Mapping[str, CommitmentVersion],
     review: Review,
     respond: Respond,
+    read_evidence: ReadEvidence | None = None,
 ) -> tuple[Examination, ...]:
     """Ask one question per active difference in each of up to two rounds."""
-    if first.worker == second.worker or not all(
-        worker.strip() for worker in (first.worker, second.worker)
-    ):
-        raise ValueError("cross-examination requires two distinct draft workers")
-    sentence_ids = [sentence.id for sentence in chunk.sentences]
-    expected = set(sentence_ids)
-    left, right = _aligned(first, expected), _aligned(second, expected)
-    differences = [
-        Difference(sid, left[sid], right[sid])
-        for sid in sentence_ids
-        if left[sid] != right[sid]
-    ]
-    evidence = {f"source:{row.id}": row.text for row in source}
-    evidence.update({f"brief:{clause.id}": clause.text for clause in brief.clauses})
-    evidence.update(
-        {
-            f"commitment:{key}": version.rendering
-            for key, version in commitments.items()
-            if version.state in BINDING_STATES and version.valid_until is None
+    differences = align_drafts(chunk, first, second)
+    source_evidence = {f"source:{row.id}": row.text for row in source}
+
+    def evidence_snapshot() -> dict[str, str]:
+        active_brief, active_commitments = (
+            (brief, commitments) if read_evidence is None else read_evidence()
+        )
+        return {
+            **source_evidence,
+            **{f"brief:{clause.id}": clause.text for clause in active_brief.clauses},
+            **{
+                f"commitment:{key}": version.rendering
+                for key, version in active_commitments.items()
+                if version.state in BINDING_STATES and version.valid_until is None
+            },
         }
-    )
 
     turns: dict[str, list[Turn]] = {item.sentence_id: [] for item in differences}
-    active = differences
+    active = list(differences)
     for round_number in (1, 2):
         next_round = []
         for difference in active:
@@ -116,6 +138,7 @@ async def examine_chunk(
                 continue
             if challenge.worker not in {first.worker, second.worker}:
                 raise ValueError("challenge must name one of the draft workers")
+            evidence = evidence_snapshot()
             answer = await respond(difference, challenge)
             if answer is not None and (
                 not answer.citations

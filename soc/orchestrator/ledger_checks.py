@@ -159,7 +159,9 @@ def gate_chunks(
                 ref=DecisionRef(row.commitment_id, row.version),
                 value=row.rendering,
                 scope_keys=frozenset(row.scope),
-                kind="term",
+                kind="non_lexical"
+                if row.rule is not None and row.rule.kind == "non_lexical"
+                else "term",
                 strength=row.strength,
                 sentence_ids=_sites(chunk, row.scope, row.sentence_ids),
             )
@@ -208,6 +210,7 @@ def capture_worker_draft(
     draft: Draft,
     *,
     checker: Checker,
+    at: int | None = None,
 ) -> tuple[Event, ...]:
     """Record manifest entries and observable undeclared uses of ledger renderings."""
     authority = ledger.authority
@@ -275,4 +278,4 @@ def capture_worker_draft(
             *(row for key, row in observed.items() if key not in declared),
         ]
 
-    return ledger.capture_draft(actor, chunk_id, observe)
+    return ledger.capture_draft(actor, chunk_id, observe, at=at)

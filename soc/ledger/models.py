@@ -33,6 +33,7 @@ EventType = Literal[
     "ChunkBuilt",
     "ExecutorRebound",
     "FlagRaised",
+    "FlagResolved",
     "DecisionDeclared",
     "DecisionCaptured",
     "CrossExamTurn",
@@ -169,6 +170,7 @@ class Tombstone(Record):
 
 class BriefChanged(Record):
     clauses: dict[Text, Text]
+    after_chunk: Version | None = None
 
 
 class ChunkBuilt(Record):
@@ -189,6 +191,12 @@ class ExecutorRebound(Record):
 
 class FlagRaised(Record):
     reason: Text
+    flag_id: Text | None = None
+    sentence_id: Text | None = None
+
+
+class FlagResolved(Record):
+    flag_id: Text
 
 
 class DecisionDeclared(DecisionUse):
@@ -253,6 +261,7 @@ class GateDecision(Record):
 class PrincipalAnswered(Record):
     question_id: Text
     answer: Text
+    question_hash: Text | None = None
 
 
 class StandingUpdated(Record):

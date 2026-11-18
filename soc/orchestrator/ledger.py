@@ -15,7 +15,12 @@ from soc.ledger.models import (
     RulingBallot,
 )
 from soc.ledger.store import AuthorityError, ChunkIdBase, Ledger
-from soc.triad.agreement import AgreementRules, Decision, approved_rendering
+from soc.triad.agreement import (
+    AgreementRules,
+    Decision,
+    ResolutionMode,
+    approved_rendering,
+)
 
 
 @contextmanager
@@ -50,6 +55,7 @@ def record_triad_ruling(
     agreement: AgreementRules,
     voters: tuple[str, str, str],
     reason: str,
+    mode: ResolutionMode = "cross_examination",
 ) -> Event:
     """Bind an outcome from authenticated participants to the exact ruling and site."""
     authority = ledger.authority
@@ -66,7 +72,7 @@ def record_triad_ruling(
         or set(ruling.sentence_ids or ()) != {difference.sentence_id}
         or ruling.rendering != decision.rendering
         or ruling.consistency != decision.consistency
-        or decision.required != agreement.rules[decision.kind]
+        or decision.required != agreement.required(decision.kind, mode)
     ):
         raise AuthorityError("ruling must match the approved decision and sentence")
     expected_voters = () if decision.required == "SERIAL" else voters

@@ -158,3 +158,43 @@ def test_malformed_draft_stops_before_cross_examination():
                 respond=unexpected,
             )
         )
+
+
+def test_cross_examination_validates_against_ruling_available_at_next_step():
+    episode = load_runtime(TOY)
+    sentence = episode.source[0]
+    chunk = ChunkInput(1, (sentence,))
+    current = {}
+    version = CommitmentVersion(
+        **RULING.model_dump(), commitment_id="D1", version=1, valid_from=1
+    )
+
+    async def review(_difference, history):
+        if history:
+            return None
+        current["D1"] = version
+        return Challenge(
+            worker="right", question="Which ruling supports your rendering?"
+        )
+
+    async def respond(_difference, _challenge):
+        assert current["D1"] == version
+        return Answer(
+            rationale="The ruling names this term.",
+            citations=[Citation(reference="commitment:D1", quote=version.rendering)],
+        )
+
+    (examined,) = asyncio.run(
+        examine_chunk(
+            chunk,
+            _draft("left", [(sentence.id, "first")]),
+            _draft("right", [(sentence.id, "second")]),
+            source=episode.source,
+            brief=episode.brief,
+            commitments={},
+            review=review,
+            respond=respond,
+            read_evidence=lambda: (episode.brief, current),
+        )
+    )
+    assert examined.turns[0].answer is not None

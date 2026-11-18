@@ -15,12 +15,22 @@ from soc.ledger.models import (
     Text,
 )
 from soc.memory import ChunkInput, ChunkOutput, Translation
-from soc.triad.examination import Draft, Examination, Respond, Review, examine_chunk
+from soc.triad.examination import (
+    Draft,
+    Examination,
+    ReadEvidence,
+    Remark,
+    Respond,
+    Review,
+    align_drafts,
+    examine_chunk,
+)
 
 DecisionType = Literal[
     "provisional", "term", "style", "normative", "brief_gap", "brief_change"
 ]
 type Choice = Literal["first", "second"]
+type ResolutionMode = Literal["cross_examination", "open_discussion", "principal_only"]
 
 
 class AgreementRules(Record):
@@ -38,6 +48,9 @@ class AgreementRules(Record):
         if self.rules["provisional"] != "ONE":
             raise ValueError("the provisional decision type requires ONE")
         return self
+
+    def required(self, kind: DecisionType, mode: ResolutionMode) -> Consistency:
+        return "SERIAL" if mode == "principal_only" else self.rules[kind]
 
 
 class Ballot(Record):
@@ -72,6 +85,25 @@ class TriadResult:
 type Classify = Callable[[Examination], Awaitable[DecisionType]]
 type Vote = Callable[[str, Examination, DecisionType], Awaitable[Ballot]]
 type Settle = Callable[[str, Examination, DecisionType], Awaitable[PrincipalResolution]]
+type Discuss = Callable[[str, Examination], Awaitable[str | None]]
+
+
+async def _discuss(
+    examinations: tuple[Examination, ...],
+    participants: tuple[str, str, str],
+    discuss: Discuss,
+) -> tuple[Examination, ...]:
+    results = []
+    for examination in examinations:
+        remarks: list[Remark] = []
+        for speaker in participants:
+            text = await discuss(
+                speaker, Examination(examination.difference, (), tuple(remarks))
+            )
+            if text is not None and text.strip():
+                remarks.append(Remark(speaker, text))
+        results.append(Examination(examination.difference, (), tuple(remarks)))
+    return tuple(results)
 
 
 def approved_rendering(
@@ -144,11 +176,14 @@ async def run_triad(
     reviewer: str,
     principal: str,
     agreement: AgreementRules,
-    review: Review,
-    respond: Respond,
     classify: Classify,
     vote: Vote,
     settle: Settle,
+    review: Review | None = None,
+    respond: Respond | None = None,
+    mode: ResolutionMode = "cross_examination",
+    discuss: Discuss | None = None,
+    read_evidence: ReadEvidence | None = None,
 ) -> TriadResult:
     """Resolve each examined difference and assemble a draft in source order."""
     voters = (first.worker, second.worker, reviewer)
@@ -157,22 +192,41 @@ async def run_triad(
         raise ValueError(
             "workers, reviewer and principal must have distinct identities"
         )
-    examinations = await examine_chunk(
-        chunk,
-        first,
-        second,
-        source=source,
-        brief=brief,
-        commitments=commitments,
-        review=review,
-        respond=respond,
-    )
+    if mode == "cross_examination":
+        if review is None or respond is None:
+            raise ValueError("cross-examination requires review and response callbacks")
+        examinations = await examine_chunk(
+            chunk,
+            first,
+            second,
+            source=source,
+            brief=brief,
+            commitments=commitments,
+            review=review,
+            respond=respond,
+            read_evidence=read_evidence,
+        )
+    else:
+        examinations = tuple(
+            Examination(difference, ())
+            for difference in align_drafts(chunk, first, second)
+        )
+        if mode == "open_discussion":
+            if discuss is None:
+                raise ValueError("open discussion requires a discussion callback")
+            examinations = await _discuss(examinations, voters, discuss)
     decisions = []
     renderings = {row.sentence_id: row.text for row in first.output.sentences}
     for examination in examinations:
         kind = await classify(examination)
         decision = await _decide(
-            examination, kind, agreement.rules[kind], voters, principal, vote, settle
+            examination,
+            kind,
+            agreement.required(kind, mode),
+            voters,
+            principal,
+            vote,
+            settle,
         )
         decisions.append(decision)
         renderings[examination.difference.sentence_id] = decision.rendering

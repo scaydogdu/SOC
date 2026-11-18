@@ -32,9 +32,12 @@ from soc.ledger.models import (
     Event,
     EventType,
     ExecutorRebound,
+    FlagRaised,
+    FlagResolved,
     GateDecision,
     GateFinding,
     OperationAuthority,
+    PrincipalAnswered,
     Record,
     RepairPath,
     Ruling,
@@ -104,6 +107,8 @@ class Projection:
     first_detection: dict[tuple[str, int], RepairPath] = field(default_factory=dict)
     brief: dict[str, str] = field(default_factory=dict)
     executor: ExecutorRebound | None = None
+    open_flags: dict[str, tuple[str, FlagRaised]] = field(default_factory=dict)
+    gates: dict[str, GateDecision] = field(default_factory=dict)
 
     def _apply(self, event: Event) -> None:
         self.ledger_version = event.ledger_version
@@ -139,6 +144,14 @@ class Projection:
             self.brief.update(_payload(event, BriefChanged).clauses)
         elif event.type == "ExecutorRebound":
             self.executor = _payload(event, ExecutorRebound)
+        elif event.type == "GateDecision" and event.chunk_id is not None:
+            self.gates[event.chunk_id] = _payload(event, GateDecision)
+        elif event.type == "FlagRaised":
+            flag = _payload(event, FlagRaised)
+            if event.chunk_id is not None:
+                self.open_flags[flag.flag_id or event.event_id] = (event.chunk_id, flag)
+        elif event.type == "FlagResolved":
+            self.open_flags.pop(_payload(event, FlagResolved).flag_id, None)
 
     def _apply_chunk(self, chunk_id: str, chunk: ChunkBuilt) -> None:
         history = self.chunk_history.setdefault(chunk_id, [])
@@ -347,10 +360,16 @@ class Ledger:
         if row is not None and self._authority != OperationAuthority(**dict(row)):
             raise AuthorityError("ledger requires its recorded operation authority")
 
-    def _events(self, after: int = 0) -> list[Event]:
-        rows = self._db.execute(
-            "SELECT * FROM events WHERE seq > ? ORDER BY seq", (after,)
-        )
+    def _events(self, after: int = 0, *, through: int | None = None) -> list[Event]:
+        if through is None:
+            rows = self._db.execute(
+                "SELECT * FROM events WHERE seq > ? ORDER BY seq", (after,)
+            )
+        else:
+            rows = self._db.execute(
+                "SELECT * FROM events WHERE seq > ? AND seq <= ? ORDER BY seq",
+                (after, through),
+            )
         return [Event.model_validate(_unpack(row)) for row in rows]
 
     def verify(self) -> int | None:
@@ -376,10 +395,10 @@ class Ledger:
             previous = stored
         return None
 
-    def rebuild(self) -> Projection:
+    def rebuild(self, *, through: int | None = None) -> Projection:
         """Replay persisted events into a fresh projection."""
         result = Projection()
-        for event in self._events():
+        for event in self._events(through=through):
             result._apply(event)
         return result
 
@@ -848,7 +867,12 @@ class Ledger:
     def record(
         self,
         actor: Actor,
-        payload: BriefChanged | ChunkBuilt | ExecutorRebound,
+        payload: BriefChanged
+        | ChunkBuilt
+        | ExecutorRebound
+        | PrincipalAnswered
+        | FlagRaised
+        | FlagResolved,
         *,
         chunk_id: str | None = None,
         base_build: int = 0,
@@ -863,8 +887,65 @@ class Ledger:
             revised_refs: list[CommitmentVersion] = []
             links: Node | None = None
             kind: EventType
-            if isinstance(payload, BriefChanged):
-                kind = "BriefChanged"
+            if isinstance(payload, (BriefChanged, PrincipalAnswered)):
+                self._require_principal(actor)
+                if isinstance(payload, PrincipalAnswered):
+                    kind = "PrincipalAnswered"
+                    if chunk_id not in self._chunk_sites:
+                        raise ValueError(
+                            "principal answer must refer to a scheduled chunk"
+                        )
+                    if prior := self._event_with_field(
+                        kind, "question_id", payload.question_id
+                    ):
+                        if (
+                            prior.chunk_id != chunk_id
+                            or _payload(prior, PrincipalAnswered) != payload
+                        ):
+                            raise ValueError(
+                                "principal answer ID was reused for a different answer"
+                            )
+                        return prior
+                else:
+                    kind = "BriefChanged"
+                    if payload.after_chunk is not None:
+                        self._validate_brief_schedule(payload)
+                        if prior := self._event_with_field(
+                            kind, "after_chunk", payload.after_chunk
+                        ):
+                            return prior
+            elif isinstance(payload, FlagRaised):
+                kind = "FlagRaised"
+                if (
+                    chunk_id not in self._chunk_sites
+                    or payload.sentence_id not in self._chunk_sites[chunk_id]
+                ):
+                    raise ValueError(
+                        "flag must refer to a scheduled chunk and sentence"
+                    )
+                if payload.flag_id is None:
+                    raise ValueError("new flags require a stable ID")
+                if prior := self._event_with_field(kind, "flag_id", payload.flag_id):
+                    if (
+                        prior.chunk_id != chunk_id
+                        or _payload(prior, FlagRaised) != payload
+                    ):
+                        raise ValueError("flag ID was reused for a different flag")
+                    return prior
+            elif isinstance(payload, FlagResolved):
+                kind = "FlagResolved"
+                if prior := self._event_with_field(kind, "flag_id", payload.flag_id):
+                    if prior.chunk_id != chunk_id:
+                        raise ValueError(
+                            "flag resolution must refer to its original chunk"
+                        )
+                    return prior
+                self._sync()
+                opened = self._live.open_flags.get(payload.flag_id)
+                if opened is None or chunk_id != opened[0]:
+                    raise ValueError(
+                        "flag resolution must refer to an open flag in this chunk"
+                    )
             elif isinstance(payload, ExecutorRebound):
                 kind = "ExecutorRebound"
                 if payload.ledger_version != current:
@@ -1000,6 +1081,33 @@ class Ledger:
                 for current_version in revised_refs:
                     self._mark_revised(actor, current_version, [chunk_id])
             return event
+
+    def _require_principal(self, actor: Actor) -> None:
+        if self._authority is not None and (
+            actor.agent != self._authority.principal or actor.role != "principal"
+        ):
+            raise AuthorityError(
+                "only the operation's principal may change the brief or record an answer"
+            )
+
+    def _validate_brief_schedule(self, payload: BriefChanged) -> None:
+        if self._episode is None:
+            raise ValueError("a scheduled brief change requires a public episode")
+        change = self._episode.events.brief_change
+        if payload.after_chunk != change.chunk or payload.clauses != {
+            row.id: row.text for row in change.clauses
+        }:
+            raise ValueError("brief change must match the public episode schedule")
+
+    def _event_with_field(
+        self, kind: EventType, field: str, value: str | int
+    ) -> Event | None:
+        row = self._db.execute(
+            "SELECT * FROM events WHERE type = ? AND json_extract(payload, ?) = ? "
+            "ORDER BY seq LIMIT 1",
+            (kind, f"$.data.{field}", value),
+        ).fetchone()
+        return Event.model_validate(_unpack(row)) if row is not None else None
 
     def _mark_overturned(
         self, actor: Actor, ref: VersionRef, chunk_ids: list[str]
@@ -1148,11 +1256,18 @@ class Ledger:
         actor: Actor,
         chunk_id: str,
         observe: Callable[[Projection], Sequence[DecisionDeclared | DecisionCaptured]],
+        *,
+        at: int | None = None,
     ) -> tuple[Event, ...]:
         """Append a worker's manifest and undeclared uses against one snapshot."""
         with self._db:
             self._db.execute("BEGIN IMMEDIATE")
             self._sync()
+            state = self._live
+            if at is not None and at != state.ledger_version:
+                if not 0 <= at <= state.ledger_version:
+                    raise ValueError("capture requires an existing ledger version")
+                state = self.rebuild(through=at)
             return tuple(
                 self._append(
                     "DecisionDeclared"
@@ -1164,7 +1279,7 @@ class Ledger:
                     commitment_id=item.ref.commitment_id,
                     base_version=item.ref.version,
                 )
-                for item in observe(self._live)
+                for item in observe(state)
             )
 
     def _tail(self) -> tuple[int, str]:
@@ -1193,12 +1308,8 @@ class Ledger:
             self._check_episode_binding()
         if self._authority is None:
             self._check_authority_binding()
-        if (
-            kind == "BriefChanged"
-            and self._authority is not None
-            and (actor.agent != self._authority.principal or actor.role != "principal")
-        ):
-            raise AuthorityError("only the operation's principal may change the brief")
+        if kind in {"BriefChanged", "PrincipalAnswered"}:
+            self._require_principal(actor)
         tail, previous = self._tail()
         seq = tail + 1
         event_id = str(uuid4())

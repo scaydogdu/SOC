@@ -41,3 +41,36 @@ providers: 145/154 branches (94.2%)
 checker: 66/68 branches (97.1%)
 baseline: 26/26 branches (100.0%)
 ```
+
+## Scripted lifecycle integration
+
+The SOC runner now takes a validated public episode, writes builds to the ledger, and runs up to three chunks in flight between scheduled events. It resumes from saved builds and gate records. Scheduled decisions use source sites after their approval boundary. Rebinding preserves the executor's durable ID and gives the successor the brief, current rulings, open flags, and partial output. The same handover snapshot is available on resume. The final sweep repairs old uses and gates every current build. Budget exhaustion publishes partial output and available gate findings.
+
+The principal reads a separate question-to-answer map and can use a trusted fallback for missing questions. A private SQLite cache pins the key per episode and serves normalized questions across conditions. Each logical answer appends a principal-burden event, with idempotency by question ID. The simulator issues the scheduled brief change and the runner applies its declared revisions. The triad supports principal-only and one pass of open discussion alongside cross-examination. A cross-examination callback can refresh the active evidence between steps.
+
+New scenarios
+
+- `test_ledger_runner_rebinds_resumes_repairs_and_gates_completed_episode`
+- `test_ledger_runner_allows_three_chunks_in_flight_after_schedule_barrier`
+- `test_principal_cache_is_shared_and_each_logical_answer_counts_once`
+- `test_only_principal_issues_scheduled_brief_change_and_resume_does_not_duplicate_it`
+- `test_form_modes_share_alignment_and_apply_their_configured_resolution` covers two modes.
+- `test_cross_examination_validates_against_ruling_available_at_next_step`
+
+`./scripts/check` exited successfully.
+
+```text
+All checks passed!
+89 files already formatted
+Success: no issues found in 48 source files
+Contracts: 1 kept, 0 broken.
+250 passed, 2 deselected in 40.78s
+ledger: 337/366 branches (92.1%)
+episode: 50/52 branches (96.2%)
+segmenter: 67/68 branches (98.5%)
+providers: 145/154 branches (94.2%)
+checker: 66/68 branches (97.1%)
+baseline: 26/26 branches (100.0%)
+```
+
+M2 exit remains open. The SOC runner currently uses injected workers. The model-backed triad worker, reusable term rulings spanning later use sites, triad parity in the RAG arm, paired repair-precision reporting, and end-to-end live condition runs remain to be verified. The frozen episode preference mapping is recorded in [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md).
