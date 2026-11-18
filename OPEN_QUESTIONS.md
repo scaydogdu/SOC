@@ -18,4 +18,7 @@
 
 - Confirm how frozen episodes should supply question aliases or a principal fallback for their private preferences. The simulator currently takes an isolated question-to-answer map and an optional trusted fallback callback.
 
+- Reconcile the five open Gemini reservations in the existing campaign against the Google billing console. The operator records confirmed amounts before the roster re-probe.
+- Confirm the live M2 condition list and the shared Form effort after Pilot A. Approve the run budget once the scripted cost estimate is available.
+
 The five M2 design decisions approved on 11 November 2026 are recorded in [Section B of the second M0 review](REVIEW_M0_2.md#b-design-questions--decided-by-can-on-11-november-2026).

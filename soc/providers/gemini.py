@@ -5,7 +5,7 @@ from urllib.parse import quote
 import httpx
 from pydantic import BaseModel, Field, JsonValue
 
-from soc.providers.http import JsonObject, api_key, post, sampling
+from soc.providers.http import JsonObject, api_key, output_limit, post, sampling
 from soc.providers.models import Outcome, ProviderRequest, Reply
 
 _SAMPLING = {
@@ -71,7 +71,8 @@ class GeminiProvider:
     def __init__(self, http: httpx.AsyncClient) -> None:
         self._http = http
 
-    async def generate(self, request: ProviderRequest) -> Reply:
+    @staticmethod
+    def request_payload(request: ProviderRequest) -> JsonObject:
         settings = sampling(request, set(_SAMPLING))
         instructions: list[JsonValue] = [
             {"text": message.content}
@@ -89,6 +90,7 @@ class GeminiProvider:
             ],
             "generationConfig": {
                 **{_SAMPLING[name]: value for name, value in settings.items()},
+                "maxOutputTokens": output_limit(request),
                 "responseMimeType": "application/json",
                 "responseJsonSchema": request.output_schema,
                 "thinkingConfig": {"thinkingLevel": request.effort.upper()},
@@ -96,12 +98,15 @@ class GeminiProvider:
         }
         if instructions:
             payload["systemInstruction"] = {"parts": instructions}
+        return payload
+
+    async def generate(self, request: ProviderRequest) -> Reply:
         wire = await post(
             self._http,
             "https://generativelanguage.googleapis.com/v1beta/models/"
             f"{quote(request.model, safe='')}:generateContent",
             headers={"x-goog-api-key": api_key("GEMINI_API_KEY", "GOOGLE_API_KEY")},
-            payload=payload,
+            payload=self.request_payload(request),
             response_type=_Response,
         )
         if isinstance(wire, Reply):

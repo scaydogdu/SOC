@@ -437,6 +437,7 @@ def test_permanent_rejection_logged_without_repair_or_error_body(tmp_path):
                 replicate=0,
                 run_id="run",
                 call_id="probe",
+                sampling={"max_output_tokens": 2048},
             )
             with pytest.raises(ProviderRequestError, match="HTTP 401"):
                 await model.generate(call)
@@ -447,3 +448,81 @@ def test_permanent_rejection_logged_without_repair_or_error_body(tmp_path):
         (entry,) = log.readlines()
     assert json.loads(entry)["outcome"] == "parse_failed"
     assert "synthetic-openai" not in entry
+
+
+def test_paid_schema_retry_reserves_each_serialized_wire_body(tmp_path):
+    import sqlite3
+    from contextlib import closing
+    from decimal import Decimal
+
+    from soc.providers.spend import SpendGuard, SpendRate
+
+    sizes = []
+
+    def handle(request):
+        payload = json.loads(request.content)
+        assert payload["max_output_tokens"] == 256
+        sizes.append(len(request.content))
+        text = "{}" if len(sizes) == 1 else RAW
+        return httpx.Response(
+            200,
+            json={
+                "status": "completed",
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [{"type": "output_text", "text": text}],
+                    }
+                ],
+                "usage": {"input_tokens": 10, "output_tokens": 2},
+            },
+        )
+
+    model = "gpt-6.1-sol"
+    path = tmp_path / "spend.sqlite"
+    guard = SpendGuard(
+        path,
+        Decimal("40"),
+        {
+            model: SpendRate(
+                max_input_tokens=5000,
+                max_output_tokens=1024,
+                input_per_million=4,
+                output_per_million=15,
+            )
+        },
+    )
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
+            client = ModelClient(
+                run_id="run",
+                mode=Mode.LIVE,
+                cache=ResponseCache(tmp_path / "cache.sqlite"),
+                run_dir=tmp_path,
+                limits=RunLimits(token_cap=100),
+                prices={model: Price(input_per_million=4, output_per_million=15)},
+                routes={model: Route("openai", OpenAIProvider(http))},
+                provider_limits={"openai": ProviderLimits(requests_per_minute=1e12)},
+                spend_guard=guard,
+            )
+            return await client.generate(
+                Request(
+                    model=model,
+                    effort="low",
+                    messages=MESSAGES,
+                    schema=Answer,
+                    replicate=0,
+                    run_id="run",
+                    call_id="retry",
+                    sampling={"max_output_tokens": 256},
+                )
+            )
+
+    result = asyncio.run(run())
+    assert result.reply.outcome is Outcome.OK
+    assert len(sizes) == 2 and sizes[1] > sizes[0]
+    with closing(sqlite3.connect(path)) as db:
+        assert db.execute(
+            "SELECT input_bound, output_bound, state FROM charges ORDER BY id"
+        ).fetchall() == [(size, 256, "settled") for size in sizes]

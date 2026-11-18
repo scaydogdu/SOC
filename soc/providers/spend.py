@@ -52,28 +52,52 @@ class SpendGuard:
             )
             db.execute("INSERT OR IGNORE INTO cap VALUES (1, ?)", (self.cap,))
             (stored_cap,) = db.execute("SELECT amount FROM cap WHERE id = 1").fetchone()
-            if stored_cap != self.cap:
-                raise ValueError(
-                    "campaign database was created with a different spend cap"
-                )
+            self._require_cap(stored_cap)
             db.execute(
                 "CREATE TABLE IF NOT EXISTS charges (id INTEGER PRIMARY KEY, "
                 "run_id TEXT NOT NULL, call_id TEXT NOT NULL, model TEXT NOT NULL, "
-                "amount INTEGER NOT NULL, state TEXT NOT NULL)"
+                "amount INTEGER NOT NULL, state TEXT NOT NULL, "
+                "input_bound INTEGER, output_bound INTEGER, outcome TEXT)"
+            )
+            columns = {column[1] for column in db.execute("PRAGMA table_info(charges)")}
+            for name, sql_type in (
+                ("input_bound", "INTEGER"),
+                ("output_bound", "INTEGER"),
+                ("outcome", "TEXT"),
+            ):
+                if name not in columns:
+                    db.execute(f"ALTER TABLE charges ADD COLUMN {name} {sql_type}")
+
+    def _require_cap(self, stored: int) -> None:
+        if stored != self.cap:
+            raise ValueError(
+                "campaign config differs from the stored spend cap; use spend set-cap "
+                "for an approved change and match the config to the stored cap"
             )
 
     def reserve(
-        self, run_id: str, call_id: str, model: str, *, output_bound: int | None = None
+        self,
+        run_id: str,
+        call_id: str,
+        model: str,
+        *,
+        input_bound: int,
+        output_bound: int,
     ) -> int | None:
         rate = self._rates[model]
-        if output_bound is not None and output_bound <= 0:
-            raise ValueError("output bound must be positive")
-        max_output = rate.max_output_tokens
-        if output_bound is not None:
-            max_output = min(max_output, output_bound)
-        amount = rate.charge(rate.max_input_tokens, max_output)
+        if not (
+            0 < input_bound <= rate.max_input_tokens
+            and 0 < output_bound <= rate.max_output_tokens
+        ):
+            raise SpendBoundError(
+                f"request bounds exceed the positive configured token limits for {model}"
+            )
+        amount = rate.charge(input_bound, output_bound)
         with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("BEGIN IMMEDIATE")
+            self._require_cap(
+                db.execute("SELECT amount FROM cap WHERE id = 1").fetchone()[0]
+            )
             spent, breached = db.execute(
                 "SELECT COALESCE(SUM(amount), 0), "
                 "COALESCE(MAX(state = 'bound_exceeded'), 0) FROM charges"
@@ -81,38 +105,44 @@ class SpendGuard:
             if breached or spent + amount > self.cap:
                 return None
             cursor = db.execute(
-                "INSERT INTO charges (run_id, call_id, model, amount, state) "
-                "VALUES (?, ?, ?, ?, 'reserved')",
-                (run_id, call_id, model, amount),
+                "INSERT INTO charges (run_id, call_id, model, amount, state, input_bound, output_bound) "
+                "VALUES (?, ?, ?, ?, 'reserved', ?, ?)",
+                (run_id, call_id, model, amount, input_bound, output_bound),
             )
             assert cursor.lastrowid is not None
             return cursor.lastrowid
 
     def settle(self, reservation: int, model: str, reply: Reply) -> None:
-        if not reply.usage_reported:
-            return
         rate = self._rates[model]
         amount = rate.charge(reply.input_tokens, reply.output_tokens)
-        exceeded = (
-            reply.input_tokens > rate.max_input_tokens
-            or reply.output_tokens > rate.max_output_tokens
-        )
+        state = "reserved"
         with closing(sqlite3.connect(self.path)) as db, db:
-            updated = db.execute(
-                "UPDATE charges SET state = CASE WHEN ? OR ? > amount "
-                "THEN 'bound_exceeded' ELSE 'settled' END, amount = ? "
-                "WHERE id = ? AND model = ? AND state = 'reserved' RETURNING state",
-                (
-                    exceeded,
-                    amount,
-                    amount,
-                    reservation,
-                    model,
-                ),
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT amount, input_bound, output_bound FROM charges "
+                "WHERE id = ? AND model = ? AND state = 'reserved'",
+                (reservation, model),
             ).fetchone()
-            if updated is None:
+            if row is None:
                 raise RuntimeError("invalid or already settled spend reservation")
-        if updated[0] == "bound_exceeded":
+            reserved, input_bound, output_bound = row
+            if reply.usage_reported:
+                exceeded = (
+                    reply.input_tokens > (input_bound or rate.max_input_tokens)
+                    or reply.output_tokens > (output_bound or rate.max_output_tokens)
+                    or amount > reserved
+                )
+                state = "bound_exceeded" if exceeded else "settled"
+            db.execute(
+                "UPDATE charges SET amount = ?, state = ?, outcome = ? WHERE id = ?",
+                (
+                    reserved if state == "reserved" else amount,
+                    state,
+                    reply.outcome,
+                    reservation,
+                ),
+            )
+        if state == "bound_exceeded":
             raise SpendBoundError(
                 f"provider usage exceeded the configured bound for {model}"
             )

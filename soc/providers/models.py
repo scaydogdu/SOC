@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Annotated, Literal, Protocol, TypeVar
+from typing import Annotated, Literal, Protocol, TypeVar, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
@@ -90,3 +90,8 @@ class Provider(Protocol):
     async def generate(self, request: ProviderRequest) -> Reply:
         """Classify provider errors and return a single attempt's outcome."""
         ...
+
+
+@runtime_checkable
+class WireProvider(Provider, Protocol):
+    def request_payload(self, request: ProviderRequest) -> dict[str, JsonValue]: ...

@@ -3,7 +3,14 @@
 import httpx
 from pydantic import BaseModel, Field
 
-from soc.providers.http import api_key, closed_schema, post, sampling
+from soc.providers.http import (
+    JsonObject,
+    api_key,
+    closed_schema,
+    output_limit,
+    post,
+    sampling,
+)
 from soc.providers.models import Outcome, ProviderRequest, Reply
 
 
@@ -59,33 +66,33 @@ class OpenAIProvider:
     def __init__(self, http: httpx.AsyncClient) -> None:
         self._http = http
 
+    @staticmethod
+    def request_payload(request: ProviderRequest) -> JsonObject:
+        sampling(request, {"max_output_tokens"})
+        return {
+            "max_output_tokens": output_limit(request),
+            "model": request.model,
+            "input": [message.model_dump(mode="json") for message in request.messages],
+            "reasoning": {"effort": request.effort},
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": request.schema_name,
+                    "strict": True,
+                    "schema": closed_schema(request.output_schema, require_all=True),
+                }
+            },
+            "store": False,
+            "service_tier": "default",
+            "prompt_cache_options": {"mode": "explicit"},
+        }
+
     async def generate(self, request: ProviderRequest) -> Reply:
-        settings = sampling(request, {"max_output_tokens"})
         wire = await post(
             self._http,
             "https://api.openai.com/v1/responses",
             headers={"Authorization": f"Bearer {api_key('OPENAI_API_KEY')}"},
-            payload={
-                **settings,
-                "model": request.model,
-                "input": [
-                    message.model_dump(mode="json") for message in request.messages
-                ],
-                "reasoning": {"effort": request.effort},
-                "text": {
-                    "format": {
-                        "type": "json_schema",
-                        "name": request.schema_name,
-                        "strict": True,
-                        "schema": closed_schema(
-                            request.output_schema, require_all=True
-                        ),
-                    }
-                },
-                "store": False,
-                "service_tier": "default",
-                "prompt_cache_options": {"mode": "explicit"},
-            },
+            payload=self.request_payload(request),
             response_type=_Response,
         )
         if isinstance(wire, Reply):

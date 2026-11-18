@@ -1,5 +1,6 @@
 """Shared HTTP transport and structured-schema handling for provider adapters."""
 
+import json
 import os
 from copy import deepcopy
 from typing import TypeVar
@@ -51,6 +52,21 @@ def sampling(request: ProviderRequest, allowed: set[str]) -> JsonObject:
     if request.sampling.keys() - allowed:
         raise ProviderRequestError("unsupported sampling settings for this provider")
     return request.sampling
+
+
+def output_limit(request: ProviderRequest) -> int:
+    limit = request.sampling.get("max_output_tokens")
+    if type(limit) is not int or limit <= 0:
+        raise ProviderRequestError("a positive max_output_tokens is required")
+    return limit
+
+
+def payload_bytes(payload: JsonObject) -> int:
+    return len(
+        json.dumps(
+            payload, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
+    )
 
 
 def closed_schema(schema: JsonObject, *, require_all: bool) -> JsonObject:

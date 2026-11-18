@@ -5,6 +5,7 @@ import asyncio
 import json
 import os
 import subprocess
+import sys
 from collections.abc import Callable, Mapping
 from decimal import Decimal
 from pathlib import Path
@@ -24,6 +25,7 @@ from soc.orchestrator.model_rag import run_model_rag_episode
 from soc.orchestrator.model_triad import ModelTeam, run_model_ledger_episode
 from soc.orchestrator.prompts import digest, json_text
 from soc.orchestrator.runner import ExperimentSettings, RunResult, RunSpec, run_episode
+from soc.orchestrator.spend_ops import spend_main
 from soc.principal.simulator import PrincipalSimulator
 from soc.providers.anthropic import AnthropicProvider
 from soc.providers.cache import ResponseCache
@@ -531,11 +533,7 @@ def live_routes(config: LiveConfig, http: httpx.AsyncClient) -> dict[str, Route]
         if family in available
     }
     return {
-        model: Route(
-            entry.family,
-            adapters[entry.family],
-            caps_billed_output=entry.family == "openai",
-        )
+        model: Route(entry.family, adapters[entry.family])
         for model, entry in config.models.items()
         if entry.family in adapters
     }
@@ -607,7 +605,12 @@ async def _main(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    if sys.argv[1:2] == ["spend"]:
+        return spend_main(sys.argv[2:])
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog="Use spend --help for campaign reconciliation commands.",
+    )
     parser.add_argument(
         "command", choices=("probe", "toy", "replay", "soc", "soc-replay")
     )

@@ -128,7 +128,19 @@ uv run --locked --offline --extra embeddings python -m soc.orchestrator.live rep
 
 Keep the campaign directory to reuse its SQLite response cache and spend ledger. Live commands reuse recorded responses for matching model, effort, messages, schema, sampling settings and replicate. They make provider calls on cache misses and can retry previous rate-limit, server or budget failures. Use `replay` to reproduce the saved toy with zero provider calls and no API keys. Replay requires an exact recorded run, call ID and request key and takes the code revision from the recorded run.
 
-`config/m1-live.yaml` sets a shared USD 40 ceiling on standard text-generation charges. Before each physical attempt, including retries, the persistent spend ledger reserves at the configured model limits. OpenAI Responses requests with an explicit output limit use the smaller of the request and model output limits. Provider-reported usage settles the reservation at the configured price ceilings. A call with unknown usage retains its reservation. These figures are local upper estimates of token charges. Use the provider invoices to reconcile billed spend.
+`config/m1-live.yaml` sets a shared USD 40 ceiling on standard text-generation charges. Each physical attempt reserves the UTF-8 byte length of its provider JSON body at the input rate and the explicit request output limit at the output rate. The output limit includes reasoning tokens for all three provider adapters. The per-model limits validate each request. Reported usage settles the reservation at the configured price ceilings. A usage overrun trips the campaign guard and an attempt with unknown usage retains its reservation.
+
+Run the spend tools against the existing campaign directory.
+
+```bash
+uv run --locked --offline python -m soc.orchestrator.live spend status --output "$CAMPAIGN"
+uv run --locked --offline python -m soc.orchestrator.live spend settle --output "$CAMPAIGN" \
+  --reservation "$RESERVATION_ID" --usd "$CONFIRMED_USD" --reason "$REASON" --approved-by "$APPROVER"
+uv run --locked --offline python -m soc.orchestrator.live spend set-cap --output "$CAMPAIGN" \
+  --usd "$APPROVED_CAP_USD" --reason "$REASON" --approved-by "$APPROVER"
+```
+
+`status` opens the database read-only. Use `settle` after confirming the charge in the provider billing console. A confirmed unbilled attempt can be settled at USD 0. Use `set-cap` for an approved campaign cap change, then match `spend_cap_usd` in the configuration to the stored amount. Both mutations append an operator record with the old and new amount, timestamp, reason and approver.
 
 ## Scripted SOC episode runner
 

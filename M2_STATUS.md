@@ -211,3 +211,59 @@ baseline: 34/34 branches (100.0%)
 ```
 
 A fresh interactive zsh session now sees all three provider families. Live M2 remains open pending the spend-guard changes and campaign checks in the new live handoff.
+
+## Live campaign spend guard and operator handoff
+
+A physical attempt now reserves the UTF-8 byte length of its provider JSON body at the configured input rate and the explicit output limit at the configured output rate. The body includes the messages, system text and structured output schema. A schema-repair retry builds and reserves its new body separately. Model limits validate the request before dispatch, and the recorded input and output reservations independently bound settlement. The byte estimate is an operational bound checked against usage, including provider processing that the client cannot tokenize locally.
+
+All three adapter output limits include billed reasoning tokens, so the formula uses one output allowance.
+
+- OpenAI Responses `max_output_tokens` limits generated tokens including hidden reasoning and formatting. [OpenAI token counting](https://developers.openai.com/api/docs/guides/token-counting)
+- Anthropic Messages `max_tokens` includes thinking and visible output for the current turn. [Anthropic thinking documentation](https://platform.claude.com/docs/en/build-with-claude/thinking)
+- Gemini GenerateContent `generationConfig.maxOutputTokens` caps the combined thought and candidate tokens. The adapter retains the selected `thinkingLevel` and uses a single direct request without continuation. [Google GenerateContent thinking limits](https://aistudio.google.com/docs/thinking?generate-content=true#token-limits)
+
+The test draft with a 768-token output limit reserves under USD 0.10 on all nine roster models, and three trial reservations fit concurrently under USD 40. The existing campaign limit of 4,096 output tokens alone costs USD 0.3072 at the GPT-6 Astra output ceiling. The campaign configuration still uses 4,096. This arithmetic makes USD 0.10 an unsuitable upper-bound target for that combination.
+
+### Historical input audit
+
+`uv run --locked --offline --extra embeddings python -m scripts.audit_campaign_bounds CAMPAIGN_DIR` rebuilt the original probe envelopes and replayed the recorded RAG toy from a temporary copy of the cache with the pinned local embedder. All **36 logical cache hashes** matched. The physical request logs contained **48 attempts with input usage** and **5 attempts without usage**. For the 48 measured attempts, including schema retries, reported input usage was within the reconstructed byte bound in every case. The largest measured input was 1,299 tokens.
+
+### Operator handoff
+
+`python -m soc.orchestrator.live spend status --output CAMPAIGN_DIR` read the existing campaign. USD 40.00 cap, USD 0.1193114 settled, USD 34.9568 reserved, and USD 4.9238886 available. All five open rows belong to run `m1-probe-25531a709b883f28`.
+
+| Reservation | Model | Call | Recorded outcome | Reserved USD |
+|---|---|---|---|---:|
+| 37 | Gemini 4 Argon | `gemini-4-argon-low-valid` | `rate_limited` | 26.40000 |
+| 38 | Gemini 3.8 Flash | `gemini-3.8-flash-low-valid` | `server_error` | 2.63304 |
+| 39 | Gemini 3.8 Flash | `gemini-3.8-flash-low-valid` | `server_error` | 2.63304 |
+| 40 | Gemini 3.8 Flash | `gemini-3.8-flash-low-valid` | `server_error` | 2.63304 |
+| 43 | Gemini 3.5 Flash-Lite | `gemini-3.5-flash-lite-low-impossible` | `server_error` | 0.65768 |
+
+Can can use `spend settle --reservation ID --usd AMOUNT --reason TEXT --approved-by NAME --output CAMPAIGN_DIR` after confirming each amount in Google billing. An approved cap change uses `spend set-cap --usd AMOUNT --reason TEXT --approved-by NAME --output CAMPAIGN_DIR`. Both record the prior and new amounts in the append-only operator audit. The real campaign remains at the values above. Post-settlement status and the roster re-probe are pending.
+
+### Proposed SOC live conditions
+
+- Keep SOC cross-examination at low effort.
+- Keep SOC cross-examination at high effort.
+- Form SOC open discussion at the shared Form effort.
+- Form SOC principal-only at the shared Form effort.
+
+The Form cross-examination run can share the Keep cross-examination run at the selected Form effort when the rest of the run configuration matches. The list, common Form effort and campaign budget await Can's confirmation. The latest recorded probe remains 14 of 18 combinations. Gemini 4 Argon and Gemini 3.8 Flash await re-probe after reconciliation. Cost estimates and live runs follow those prerequisites.
+
+### Verification
+
+New tests exercise three outstanding reservations, rejection above either model limit, breach detection below the combined dollar envelope, exact wire sizes on schema retry, read-only legacy status, and append-only operator actions on temporary databases.
+
+```text
+Success: no issues found in 54 source files
+Contracts: 1 kept, 0 broken.
+280 passed, 3 deselected in 46.41s
+timeline: 35/36 branches (97.2%)
+ledger: 352/382 branches (92.1%)
+episode: 52/54 branches (96.3%)
+segmenter: 67/68 branches (98.5%)
+providers: 155/166 branches (93.4%)
+checker: 66/68 branches (97.1%)
+baseline: 34/34 branches (100.0%)
+```

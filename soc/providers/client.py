@@ -13,6 +13,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from soc.providers.cache import RETRYABLE_OUTCOMES, ResponseCache, cache_key
+from soc.providers.http import output_limit, payload_bytes
 from soc.providers.models import (
     Message,
     Mode,
@@ -25,8 +26,11 @@ from soc.providers.models import (
     Reply,
     Request,
     Response,
+    WireProvider,
 )
 from soc.providers.spend import SpendGuard
+
+SCHEMA_REPAIR_INSTRUCTION = "Return valid JSON matching the supplied schema."
 
 
 class CacheMiss(LookupError):
@@ -83,7 +87,6 @@ class RunLimits(BaseModel):
 class Route:
     family: str
     provider: Provider
-    caps_billed_output: bool = False
 
 
 class _Throttle:
@@ -246,15 +249,6 @@ class ModelClient:
         start = monotonic()
         input_tokens = output_tokens = transient = attempt = 0
         repaired = retried_refusal = False
-        max_output_tokens = parameters.sampling.get("max_output_tokens")
-        output_bound = (
-            max_output_tokens
-            if route.caps_billed_output
-            and type(max_output_tokens) is int
-            and max_output_tokens > 0
-            else None
-        )
-
         while True:
             async with throttle.slots:
                 await throttle.wait()
@@ -263,11 +257,17 @@ class ModelClient:
                     break
                 reservation = None
                 if self._spend_guard is not None:
+                    wire_payload = (
+                        route.provider.request_payload(parameters)
+                        if isinstance(route.provider, WireProvider)
+                        else parameters.model_dump(mode="json")
+                    )
                     reservation = self._spend_guard.reserve(
                         request.run_id,
                         request.call_id,
                         request.model,
-                        output_bound=output_bound,
+                        input_bound=payload_bytes(wire_payload),
+                        output_bound=output_limit(parameters),
                     )
                     if reservation is None:
                         reply = Reply(outcome=Outcome.BUDGET_EXHAUSTED)
@@ -276,6 +276,12 @@ class ModelClient:
                 try:
                     reply = await route.provider.generate(parameters)
                 except ProviderRequestError:
+                    if self._spend_guard is not None and reservation is not None:
+                        self._spend_guard.settle(
+                            reservation,
+                            request.model,
+                            Reply(outcome=Outcome.PARSE_FAILED),
+                        )
                     self._log(
                         request,
                         key,
@@ -322,7 +328,7 @@ class ModelClient:
                             *parameters.messages,
                             Message(
                                 role="user",
-                                content="Return valid JSON matching the supplied schema.",
+                                content=SCHEMA_REPAIR_INSTRUCTION,
                             ),
                         )
                     }

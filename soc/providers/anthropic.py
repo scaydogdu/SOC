@@ -3,7 +3,14 @@
 import httpx
 from pydantic import BaseModel, Field
 
-from soc.providers.http import api_key, closed_schema, post, sampling
+from soc.providers.http import (
+    JsonObject,
+    api_key,
+    closed_schema,
+    output_limit,
+    post,
+    sampling,
+)
 from soc.providers.models import Outcome, ProviderRequest, Reply
 
 _STOP = {
@@ -37,11 +44,31 @@ class AnthropicProvider:
     def __init__(self, http: httpx.AsyncClient) -> None:
         self._http = http
 
-    async def generate(self, request: ProviderRequest) -> Reply:
-        settings = sampling(request, {"max_output_tokens"})
+    @staticmethod
+    def request_payload(request: ProviderRequest) -> JsonObject:
+        sampling(request, {"max_output_tokens"})
         system = [
             message.content for message in request.messages if message.role == "system"
         ]
+        return {
+            "model": request.model,
+            "max_tokens": output_limit(request),
+            "system": [{"type": "text", "text": text} for text in system],
+            "messages": [
+                message.model_dump(mode="json")
+                for message in request.messages
+                if message.role != "system"
+            ],
+            "output_config": {
+                "effort": request.effort,
+                "format": {
+                    "type": "json_schema",
+                    "schema": closed_schema(request.output_schema, require_all=False),
+                },
+            },
+        }
+
+    async def generate(self, request: ProviderRequest) -> Reply:
         wire = await post(
             self._http,
             "https://api.anthropic.com/v1/messages",
@@ -49,25 +76,7 @@ class AnthropicProvider:
                 "x-api-key": api_key("ANTHROPIC_API_KEY"),
                 "anthropic-version": "2023-06-01",
             },
-            payload={
-                "model": request.model,
-                "max_tokens": settings.get("max_output_tokens", 4096),
-                "system": [{"type": "text", "text": text} for text in system],
-                "messages": [
-                    message.model_dump(mode="json")
-                    for message in request.messages
-                    if message.role != "system"
-                ],
-                "output_config": {
-                    "effort": request.effort,
-                    "format": {
-                        "type": "json_schema",
-                        "schema": closed_schema(
-                            request.output_schema, require_all=False
-                        ),
-                    },
-                },
-            },
+            payload=self.request_payload(request),
             response_type=_Response,
         )
         if isinstance(wire, Reply):

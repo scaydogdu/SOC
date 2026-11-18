@@ -44,8 +44,12 @@ def test_reservations_are_shared_and_survive_reopen(tmp_path):
     first = SpendGuard(path, Decimal("1"), {MODEL: RATE})
     second = SpendGuard(path, Decimal("1"), {MODEL: RATE})
     with ThreadPoolExecutor(2) as threads:
-        a = threads.submit(first.reserve, "probe", "a", MODEL)
-        b = threads.submit(second.reserve, "toy", "b", MODEL)
+        a = threads.submit(
+            first.reserve, "probe", "a", MODEL, input_bound=900, output_bound=100
+        )
+        b = threads.submit(
+            second.reserve, "toy", "b", MODEL, input_bound=900, output_bound=100
+        )
         allowed = [
             reservation
             for reservation in (a.result(), b.result())
@@ -55,14 +59,17 @@ def test_reservations_are_shared_and_survive_reopen(tmp_path):
     reopened = SpendGuard(path, Decimal("1"), {MODEL: RATE})
     assert reopened.summary()["unsettled_reservations_usd"] == 1
     reopened.settle(allowed[0], MODEL, Reply(outcome=Outcome.SERVER_ERROR))
-    assert reopened.reserve("probe", "retry", MODEL) is None
-    with pytest.raises(ValueError, match="different spend cap"):
+    assert (
+        reopened.reserve("probe", "retry", MODEL, input_bound=900, output_bound=100)
+        is None
+    )
+    with pytest.raises(ValueError, match="use spend set-cap"):
         SpendGuard(path, Decimal("2"), {MODEL: RATE})
 
 
 def test_usage_over_bound_stops_the_campaign(tmp_path):
     guard = SpendGuard(tmp_path / "spend.sqlite", Decimal("4"), {MODEL: RATE})
-    reservation = guard.reserve("probe", "a", MODEL)
+    reservation = guard.reserve("probe", "a", MODEL, input_bound=900, output_bound=100)
     assert reservation is not None
     with pytest.raises(SpendBoundError):
         guard.settle(
@@ -76,14 +83,14 @@ def test_usage_over_bound_stops_the_campaign(tmp_path):
             ),
         )
     assert guard.summary()["bound_exceeded"] is True
-    assert guard.reserve("toy", "b", MODEL) is None
+    assert guard.reserve("toy", "b", MODEL, input_bound=900, output_bound=100) is None
 
 
 def test_request_output_bound_allows_smaller_reservation(tmp_path):
     path = tmp_path / "spend.sqlite"
     guard = SpendGuard(path, Decimal("0.92"), {MODEL: RATE})
-    assert guard.reserve("toy", "a", MODEL) is None
-    reservation = guard.reserve("toy", "a", MODEL, output_bound=20)
+    assert guard.reserve("toy", "a", MODEL, input_bound=900, output_bound=100) is None
+    reservation = guard.reserve("toy", "a", MODEL, input_bound=900, output_bound=20)
     assert reservation is not None
     reopened = SpendGuard(path, Decimal("0.92"), {MODEL: RATE})
     assert reopened.summary()["unsettled_reservations_usd"] == 0.92
@@ -99,7 +106,7 @@ def test_request_output_bound_allows_smaller_reservation(tmp_path):
             ),
         )
     assert reopened.summary()["bound_exceeded"] is True
-    assert reopened.reserve("toy", "b", MODEL, output_bound=20) is None
+    assert reopened.reserve("toy", "b", MODEL, input_bound=900, output_bound=20) is None
 
 
 def test_spend_cap_is_checked_before_each_physical_attempt(tmp_path):
@@ -113,7 +120,7 @@ def test_spend_cap_is_checked_before_each_physical_attempt(tmp_path):
             return Reply(outcome=Outcome.SERVER_ERROR)
 
     provider = Timeout()
-    guard = SpendGuard(tmp_path / "spend.sqlite", Decimal("1"), {MODEL: RATE})
+    guard = SpendGuard(tmp_path / "spend.sqlite", Decimal("0.5"), {MODEL: RATE})
     client = ModelClient(
         run_id="probe",
         mode=Mode.LIVE,
@@ -135,12 +142,13 @@ def test_spend_cap_is_checked_before_each_physical_attempt(tmp_path):
                 replicate=0,
                 run_id="probe",
                 call_id="first",
+                sampling={"max_output_tokens": 50},
             )
         )
     )
     assert result.reply.outcome is Outcome.BUDGET_EXHAUSTED
     assert provider.attempts == 1
-    assert guard.summary()["unsettled_reservations_usd"] == 1
+    assert 0.25 < guard.summary()["unsettled_reservations_usd"] <= 0.5
 
 
 def campaign():
@@ -150,8 +158,14 @@ def campaign():
             "token_cap_per_run": 5000,
             "probe_max_output_tokens": 100,
             "models": {
-                MODEL: {"family": "openai", "limits": RATE},
-                SUCCESSOR: {"family": "openai", "limits": RATE},
+                MODEL: {
+                    "family": "openai",
+                    "limits": RATE.model_copy(update={"max_input_tokens": 100_000}),
+                },
+                SUCCESSOR: {
+                    "family": "openai",
+                    "limits": RATE.model_copy(update={"max_input_tokens": 100_000}),
+                },
             },
             "provider_limits": {"openai": {"requests_per_minute": 1e9}},
             "toy": {
@@ -248,7 +262,7 @@ def test_missing_credentials_and_rejected_model_are_reported(tmp_path, monkeypat
         "missing_credentials",
     ]
     assert report.results[0].detail == "provider rejected the request (HTTP 404)"
-    assert report.spend["unsettled_reservations_usd"] == 1
+    assert 0 < report.spend["unsettled_reservations_usd"] < 1
     with pytest.raises(ValueError, match="credentials"):
         asyncio.run(
             run_live_toy(config, tmp_path, TOY, "test", HashEmbedder(), routes={})
@@ -271,7 +285,9 @@ def test_shipped_campaign_covers_the_roster_and_can_reserve_any_model(tmp_path):
         {model: entry.limits for model, entry in config.models.items()},
     )
     for model in config.models:
-        reservation = guard.reserve("probe", "call", model)
+        reservation = guard.reserve(
+            "probe", "call", model, input_bound=512, output_bound=1024
+        )
         assert reservation is not None
         guard.settle(
             reservation,
@@ -332,3 +348,99 @@ def test_soc_launch_requires_effort_probe_before_opening_run_or_spend(tmp_path):
             )
         )
     assert not root.exists() and not run_dir.exists()
+
+
+def test_roster_request_bounds_support_three_outstanding_reservations(tmp_path):
+    from soc.orchestrator.model_triad import DraftReply
+    from soc.providers.anthropic import AnthropicProvider
+    from soc.providers.gemini import GeminiProvider
+    from soc.providers.http import payload_bytes
+    from soc.providers.models import ProviderRequest
+    from soc.providers.openai import OpenAIProvider
+
+    builders = {
+        "anthropic": AnthropicProvider.request_payload,
+        "google": GeminiProvider.request_payload,
+        "openai": OpenAIProvider.request_payload,
+    }
+    config = LiveConfig.model_validate(
+        yaml.safe_load((ROOT / "config/m1-live.yaml").read_text())
+    )
+    experiment = config.experiment.model_copy(update={"max_output_tokens": 768})
+    guard = SpendGuard(
+        tmp_path / "spend.sqlite",
+        config.spend_cap_usd,
+        {model: row.limits for model, row in config.models.items()},
+    )
+    bounds = {}
+    for model, entry in config.models.items():
+        request = ProviderRequest(
+            model=model,
+            effort="low",
+            schema_name="DraftReply",
+            output_schema=DraftReply.model_json_schema(),
+            sampling={"max_output_tokens": experiment.max_output_tokens},
+            messages=(
+                Message(role="system", content="Translate protocol text into Turkish."),
+                Message(
+                    role="user",
+                    content="Translate the sentence and return its ID. 9999-1-s01: A gateway forwards packets.",
+                ),
+            ),
+        )
+        limits = (
+            payload_bytes(builders[entry.family](request)),
+            experiment.max_output_tokens,
+        )
+        assert entry.limits.charge(*limits) < 100_000_000
+        bounds[model] = limits
+    triad = ("gpt-6.1-sol", "claude-sonnet-5-5", "gemini-3.8-flash")
+    with ThreadPoolExecutor(3) as pool:
+        requests = [
+            pool.submit(
+                guard.reserve,
+                "triad",
+                key,
+                key,
+                input_bound=bounds[key][0],
+                output_bound=bounds[key][1],
+            )
+            for key in triad
+        ]
+        assert all(request.result(timeout=5) for request in requests)
+    assert 0 < guard.summary()["unsettled_reservations_usd"] < 0.3
+
+
+@pytest.mark.parametrize(
+    ("input_bound", "output_bound"), [(0, 50), (901, 50), (500, 101), (500, 0)]
+)
+def test_spend_refuses_bounds_outside_roster_ceilings(
+    tmp_path, input_bound, output_bound
+):
+    guard = SpendGuard(tmp_path / "spend.sqlite", Decimal("40"), {MODEL: RATE})
+    with pytest.raises(SpendBoundError, match="configured token limits"):
+        guard.reserve(
+            "triad", "first", MODEL, input_bound=input_bound, output_bound=output_bound
+        )
+    assert guard.summary()["reserved_attempts"] == 0
+
+
+def test_usage_over_one_bound_trips_guard_even_below_total_reservation(tmp_path):
+    guard = SpendGuard(tmp_path / "spend.sqlite", Decimal("40"), {MODEL: RATE})
+    slot = guard.reserve("triad", "one", MODEL, input_bound=200, output_bound=100)
+    assert slot is not None
+    with pytest.raises(SpendBoundError):
+        guard.settle(
+            slot,
+            MODEL,
+            Reply(
+                outcome=Outcome.OK,
+                input_tokens=201,
+                output_tokens=1,
+                usage_reported=True,
+            ),
+        )
+    assert guard.summary()["bound_exceeded"]
+    assert (
+        guard.reserve("triad", "next", MODEL, input_bound=100, output_bound=50) is None
+    )
