@@ -54,6 +54,15 @@ class Decision:
     sentence_ids: frozenset[str] | None = None
 
 
+class TermNote(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    decision_id: str
+    scope_key: str
+    rendering: str
+    sentence_ids: tuple[str, ...]
+
+
 @dataclass(frozen=True)
 class DecisionChange:
     previous: Decision

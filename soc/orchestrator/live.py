@@ -15,14 +15,15 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from soc.baseline.memory import RAGMemory
-from soc.baseline.retrieval import BGEM3Embedder, Embedder
+from soc.baseline.retrieval import BGEM3Embedder, Embedder, RetrievalConfig
 from soc.enforce.checker import Checker
 from soc.ledger.models import Actor
 from soc.orchestrator.journal import run_lock
 from soc.orchestrator.ledger_runner import LedgerRunResult, LedgerRunSpec
+from soc.orchestrator.model_rag import run_model_rag_episode
 from soc.orchestrator.model_triad import ModelTeam, run_model_ledger_episode
 from soc.orchestrator.prompts import digest, json_text
-from soc.orchestrator.runner import ExperimentSettings, RunSpec, run_episode
+from soc.orchestrator.runner import ExperimentSettings, RunResult, RunSpec, run_episode
 from soc.principal.simulator import PrincipalSimulator
 from soc.providers.anthropic import AnthropicProvider
 from soc.providers.cache import ResponseCache
@@ -451,6 +452,8 @@ class SOCCondition(BaseModel):
 
     run: LedgerRunSpec
     team: ModelTeam
+    memory: Literal["soc", "rag"] = "soc"
+    retrieval: RetrievalConfig | None = None
 
 
 async def run_live_soc(
@@ -463,7 +466,7 @@ async def run_live_soc(
     answer_key: Path,
     agreement: AgreementRules,
     routes: Mapping[str, Route] | None,
-) -> LedgerRunResult:
+) -> LedgerRunResult | RunResult:
     """Use the existing campaign preflight, response cache, and spending guard."""
     spec, team = condition.run, condition.team
     if routes is not None:
@@ -493,6 +496,20 @@ async def run_live_soc(
         routes=routes,
         guard=campaign_spend(config, root) if routes is not None else None,
     )
+    if condition.memory == "rag":
+        return await run_model_rag_episode(
+            episode,
+            run_dir,
+            spec=spec,
+            experiment=config.experiment,
+            principal=principal,
+            checker=Checker(),
+            client=client,
+            team=team,
+            agreement=agreement,
+            embedder=BGEM3Embedder(),
+            retrieval=condition.retrieval,
+        )
     return await run_model_ledger_episode(
         episode,
         run_dir,
@@ -546,7 +563,12 @@ async def _main(args: argparse.Namespace) -> int:
                 agreement=agreement,
                 routes=live_routes(config, http) if args.command == "soc" else None,
             )
-        print(f"{result.status}: {len(result.outputs)} chunks")
+        chunks = (
+            result.chunks_completed
+            if isinstance(result, RunResult)
+            else len(result.outputs)
+        )
+        print(f"{result.status}: {chunks} chunks")
         return int(result.status != "completed")
     if args.command == "replay":
         okay = await run_live_toy(

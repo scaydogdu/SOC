@@ -58,6 +58,8 @@ class ChunkTask:
     previous: ChunkOutput | None
     findings: tuple[GateFinding, ...]
     hints: tuple[RevisionHint, ...]
+    retrieval: str | None = None
+    memory_handover: str | None = None
 
 
 @dataclass(frozen=True)
@@ -86,6 +88,7 @@ async def run_ledger_episode(
     checker: Checker,
     worker: LedgerWorker,
     worker_fingerprint: str | None = None,
+    model_protocol: dict[str, object] | None = None,
 ) -> LedgerRunResult:
     """Drive drafting, durable builds, scheduled events, and final acceptance."""
     episode = validate_runtime(load_runtime(episode_dir))
@@ -115,7 +118,14 @@ async def run_ledger_episode(
         ) as ledger,
     ):
         run = _LedgerExecution(
-            ledger, run_dir, spec, experiment, checker, principal, worker
+            ledger,
+            run_dir,
+            spec,
+            experiment,
+            checker,
+            principal,
+            worker,
+            model_protocol,
         )
         return await run.execute(episode)
 
@@ -130,6 +140,7 @@ class _LedgerExecution:
         checker: Checker,
         principal: PrincipalSimulator,
         worker: LedgerWorker,
+        model_protocol: dict[str, object] | None,
     ) -> None:
         self.ledger = ledger
         self.directory = directory
@@ -138,6 +149,7 @@ class _LedgerExecution:
         self.checker = checker
         self.principal = principal
         self.worker = worker
+        self.model_protocol = model_protocol
         self.actor = Actor(agent="executor", model=spec.initial_model, role="executor")
         self.successor = self.actor.model_copy(update={"model": spec.successor_model})
         self.handover: ExecutorHandover | None = None
@@ -306,6 +318,7 @@ class _LedgerExecution:
             path = "gate"
 
     async def execute(self, episode: Episode) -> LedgerRunResult:
+        self.episode_hash = digest(episode.model_dump_json())
         approvals: dict[int, list[Approval]] = defaultdict(list)
         for approval in episode.events.approvals:
             approvals[approval.chunk].append(approval)
@@ -425,6 +438,8 @@ class _LedgerExecution:
             json_text(
                 {
                     **self.spec.model_dump(mode="json"),
+                    "episode_sha256": self.episode_hash,
+                    "model_protocol": self.model_protocol,
                     "status": status,
                     "outcome": outcome,
                     "chunks_completed": len(outputs),

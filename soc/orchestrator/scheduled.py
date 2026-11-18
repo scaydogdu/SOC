@@ -1,6 +1,6 @@
 """Apply public approval and brief events through the registered principal."""
 
-from soc.episode import Approval, Episode
+from soc.episode import Approval, Episode, approval_sites
 from soc.ledger.models import (
     Actor,
     Commitment,
@@ -41,19 +41,7 @@ def record_approval(
                 f"ledger approval differs from the episode for {identity.id}"
             )
         return
-    scopes = set(approval.scope_keys)
-    later = {
-        sentence_id
-        for chunk in episode.events.chunks[approval.chunk :]
-        for sentence_id in chunk.sentence_ids
-    }
-    applicable = [
-        sentence
-        for sentence in episode.source
-        if sentence.id in later
-        and sentence.translatable
-        and scopes.intersection(sentence.scope_keys)
-    ]
+    applicable = approval_sites(episode, approval)
     if not applicable:
         raise ValueError(f"scheduled approval has no later use sites for {identity.id}")
     example = applicable[0]

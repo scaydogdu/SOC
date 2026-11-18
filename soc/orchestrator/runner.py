@@ -59,6 +59,28 @@ class ChunkWorker(Protocol):
 
 
 @dataclass(frozen=True)
+class RAGChunkTask:
+    chunk: ChunkInput
+    model: str
+    round_number: int
+    brief: Brief
+    context: PromptContext
+    handover: PromptContext | None
+    previous: ChunkOutput | None
+    findings: tuple[Finding, ...]
+    revisions: Sequence[DecisionChange]
+
+
+class RAGTriadWorker(Protocol):
+    fingerprint: str
+    model_protocol: dict[str, object]
+
+    async def __call__(self, task: RAGChunkTask, /) -> Attempt: ...
+
+    def remember(self, attempt: Attempt) -> None: ...
+
+
+@dataclass(frozen=True)
 class RunResult:
     status: RunStatus
     chunks_completed: int
@@ -96,6 +118,7 @@ async def run_episode(
     client: ModelClient,
     worker: ChunkWorker | None = None,
     prompts_dir: Path = DEFAULT_PROMPTS,
+    triad_worker: RAGTriadWorker | None = None,
 ) -> RunResult:
     """Run or resume using a fresh memory instance and model client for this run."""
     if (
@@ -117,11 +140,19 @@ async def run_episode(
             key: price.model_dump() for key, price in sorted(client.prices.items())
         },
     }
+    if triad_worker is not None:
+        if worker is not None:
+            raise ValueError("configure one worker protocol per RAG run")
+        manifest["triad_worker"] = triad_worker.fingerprint
+        manifest["model_protocol"] = triad_worker.model_protocol
     manifest_json = json_text(manifest)
     ensure_no_credentials(
         configured_credentials(), manifest_json, episode.model_dump_json()
     )
+    resuming = (run_dir / "journal.sqlite").is_file()
     with open_journal(run_dir, digest(manifest_json)) as journal:
+        if triad_worker is not None and resuming:
+            client.restore_recorded_usage()
         execution = _Execution(
             spec,
             experiment,
@@ -131,6 +162,7 @@ async def run_episode(
             worker or client.generate,
             prompts,
             journal,
+            triad_worker,
         )
         if not (run_dir / "run.json").exists():
             execution.publish(run_dir, manifest, "running", chunks)
@@ -165,6 +197,7 @@ class _Execution:
         worker: ChunkWorker,
         prompts: TranslationPrompts,
         journal: Journal,
+        triad_worker: RAGTriadWorker | None,
     ) -> None:
         self.spec = spec
         self.experiment = experiment
@@ -174,6 +207,7 @@ class _Execution:
         self.worker = worker
         self.prompts = prompts
         self.journal = journal
+        self.triad_worker = triad_worker
         self.model = spec.initial_model
         self.brief = Brief(clauses=[])
         self.handover: PromptContext | None = None
@@ -203,12 +237,13 @@ class _Execution:
         previous = self.outputs.get(position)
         context = self.memory.context_for(chunk, self.brief)
         handover = self.handover
+        prior_findings = self._check(chunk, previous) if previous is not None else ()
         messages = self.prompts.render(
             chunk,
             context,
             handover=handover,
             previous=previous,
-            findings=self._check(chunk, previous) if previous is not None else (),
+            findings=prior_findings,
             revisions=revisions,
         )
         prompt_hash = digest(json_text([message.model_dump() for message in messages]))
@@ -223,7 +258,22 @@ class _Execution:
             sampling={"max_output_tokens": self.experiment.max_output_tokens},
         )
         recovering, recorded = self.journal.prepare(call_id, prompt_hash)
-        if recorded is None:
+        if recorded is None and self.triad_worker is not None:
+            recorded = await self.triad_worker(
+                RAGChunkTask(
+                    chunk,
+                    self.model,
+                    round_number,
+                    self.brief,
+                    context,
+                    handover,
+                    previous,
+                    prior_findings,
+                    revisions,
+                )
+            )
+            self.journal.complete(call_id, recorded)
+        elif recorded is None:
             response = await self.worker(request, recover=recovering)
             if response.parsed is not None:
                 ensure_no_credentials(
@@ -237,8 +287,18 @@ class _Execution:
                 estimated_cost_usd=response.estimated_cost_usd,
             )
             self.journal.complete(call_id, recorded)
-        else:
+        elif self.triad_worker is None:
             self.client.tokens += recorded.input_tokens + recorded.output_tokens
+        if self.triad_worker is not None:
+            self.triad_worker.remember(recorded)
+            self.events.extend(
+                {
+                    "event": "principal_answered",
+                    "chunk": position,
+                    **answer.model_dump(mode="json"),
+                }
+                for answer in recorded.principal_answers
+            )
         self.attempts.append(recorded)
         self.rounds[position] = round_number
         if recorded.outcome is Outcome.BUDGET_EXHAUSTED and not (

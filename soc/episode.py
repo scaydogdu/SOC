@@ -144,3 +144,55 @@ def load_runtime(directory: Path) -> Episode:
         brief=read_yaml(directory / "brief.yaml", Brief),
         events=read_yaml(directory / "events.yaml", Schedule),
     )
+
+
+def reusable_term_sites(
+    episode: Episode, sentence_id: str, scope_key: str
+) -> tuple[str, ...]:
+    """Find the originating and later uses before scheduled principal ownership."""
+    schedule = episode.events
+    source = {sentence.id: sentence for sentence in episode.source}
+    origin = next(
+        (
+            index
+            for index, chunk in enumerate(schedule.chunks)
+            if sentence_id in chunk.sentence_ids
+        ),
+        None,
+    )
+    if origin is None or scope_key not in source[sentence_id].scope_keys:
+        raise ValueError("term must match a scope key at its source sentence")
+    # A scheduled approval claims matching sites after its boundary.
+    end = min(
+        (
+            approval.chunk
+            for approval in schedule.approvals
+            if scope_key in approval.scope_keys
+        ),
+        default=len(schedule.chunks),
+    )
+    return tuple(
+        sid
+        for index, chunk in enumerate(schedule.chunks[origin:end], origin)
+        for sid in chunk.sentence_ids
+        if (index > origin or sid == sentence_id)
+        and source[sid].translatable
+        and scope_key in source[sid].scope_keys
+    )
+
+
+def approval_sites(episode: Episode, approval: Approval) -> tuple[Sentence, ...]:
+    """Return the public sites to which a scheduled approval applies."""
+    later = {
+        sentence_id
+        for chunk in episode.events.chunks[approval.chunk :]
+        for sentence_id in chunk.sentence_ids
+    }
+    scopes = set(approval.scope_keys)
+    return tuple(
+        sentence
+        for sentence in episode.source
+        if sentence.id in later
+        and sentence.translatable
+        and scopes.intersection(sentence.scope_keys)
+    )

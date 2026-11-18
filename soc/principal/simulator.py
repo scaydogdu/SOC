@@ -95,6 +95,12 @@ class PrincipalSimulator:
     ) -> str:
         """Log each answered logical request, including answers served from cache."""
         self._check_principal(ledger)
+        answer = await self.resolve(question_id, question)
+        ledger.record(self._actor, answer, chunk_id=chunk_id)
+        return answer.answer
+
+    async def resolve(self, question_id: str, question: str) -> PrincipalAnswered:
+        """Return one cached answer for the caller's auditable request."""
         normalized = normalize_question(question)
         ensure_no_credentials(configured_credentials(), question)
         identity = (self._episode_id, normalized)
@@ -122,16 +128,11 @@ class PrincipalSimulator:
                         ).fetchone()
                 assert row is not None
                 response: str = row[0]
-        ledger.record(
-            self._actor,
-            PrincipalAnswered(
-                question_id=question_id,
-                answer=response,
-                question_hash=hashlib.sha256(normalized.encode()).hexdigest(),
-            ),
-            chunk_id=chunk_id,
+        return PrincipalAnswered(
+            question_id=question_id,
+            answer=response,
+            question_hash=hashlib.sha256(normalized.encode()).hexdigest(),
         )
-        return response
 
     def issue_brief_change(
         self, ledger: Ledger, change: BriefChange, *, after_chunk: int

@@ -15,7 +15,7 @@ from uuid import uuid4
 
 from pydantic import JsonValue
 
-from soc.episode import Brief, Episode, Sentence, validate_runtime
+from soc.episode import Brief, Episode, Sentence, reusable_term_sites, validate_runtime
 from soc.ledger.models import (
     BINDING_STATES,
     TRIAD_APPROVAL_COUNTS,
@@ -357,35 +357,7 @@ class Ledger:
         """Resolve a term's current and later public use sites before principal ownership."""
         if self._episode is None:
             raise ValueError("reusable terms require a public episode")
-        schedule = self._episode.events
-        origin = next(
-            (
-                index
-                for index, chunk in enumerate(schedule.chunks)
-                if sentence_id in chunk.sentence_ids
-            ),
-            None,
-        )
-        if origin is None or scope_key not in self._scope_keys[sentence_id]:
-            raise ValueError("term must match a scope key at its source sentence")
-        # A scheduled approval claims matching sites after its boundary.
-        end = min(
-            (
-                approval.chunk
-                for approval in schedule.approvals
-                if scope_key in approval.scope_keys
-            ),
-            default=len(schedule.chunks),
-        )
-        source = {row.id: row for row in self._episode.source}
-        return tuple(
-            sid
-            for index, chunk in enumerate(schedule.chunks[origin:end], origin)
-            for sid in chunk.sentence_ids
-            if (index > origin or sid == sentence_id)
-            and source[sid].translatable
-            and scope_key in self._scope_keys[sid]
-        )
+        return reusable_term_sites(self._episode, sentence_id, scope_key)
 
     def _check_authority_binding(self) -> None:
         row = self._db.execute(

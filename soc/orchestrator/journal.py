@@ -9,7 +9,8 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from soc.memory import ChunkOutput
+from soc.ledger.models import PrincipalAnswered
+from soc.memory import ChunkOutput, TermNote
 from soc.providers.models import Outcome
 
 
@@ -21,6 +22,8 @@ class Attempt(BaseModel):
     input_tokens: int = Field(ge=0)
     output_tokens: int = Field(ge=0)
     estimated_cost_usd: float = Field(ge=0)
+    terms: list[TermNote] = Field(default_factory=list)
+    principal_answers: list[PrincipalAnswered] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def consistent_output(self) -> Self:

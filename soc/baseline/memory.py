@@ -5,7 +5,7 @@ from dataclasses import dataclass, replace
 
 from soc.baseline.retrieval import Embedder, HybridIndex, RetrievalConfig
 from soc.enforce.checker import Checker
-from soc.episode import Approval, Brief, Revision
+from soc.episode import Approval, Brief, Episode, Revision, approval_sites
 from soc.memory import (
     ChunkInput,
     ChunkOutput,
@@ -14,6 +14,7 @@ from soc.memory import (
     DecisionRef,
     ForbiddenRendering,
     PromptContext,
+    TermNote,
     Translation,
 )
 
@@ -36,11 +37,13 @@ class RAGMemory:
         checker: Checker,
         *,
         retrieval: RetrievalConfig | None = None,
+        episode: Episode | None = None,
     ) -> None:
         self._index = HybridIndex(
             embedder, retrieval if retrieval is not None else RetrievalConfig()
         )
         self._checker = checker
+        self._episode = episode
         self._notes: dict[str, list[Note]] = {}
         self._outputs: dict[int, tuple[Translation, ...]] = {}
 
@@ -54,6 +57,25 @@ class RAGMemory:
         key = note.decision.ref.decision_id
         self._index.upsert(key, note.content())
         self._notes.setdefault(key, []).append(note)
+
+    def remember_term(self, note: TermNote) -> None:
+        if note.decision_id in self._notes:
+            return
+        sites = frozenset(note.sentence_ids)
+        for existing in self._current():
+            decision = existing.decision
+            if note.scope_key in decision.scope_keys and (
+                decision.sentence_ids is None or sites & decision.sentence_ids
+            ):
+                return
+        decision = Decision(
+            DecisionRef(note.decision_id, 1),
+            note.rendering,
+            frozenset({note.scope_key}),
+            "term",
+            sentence_ids=sites,
+        )
+        self._append(Note(decision, "Term agreed by the translation team."))
 
     def record_approval(self, approval: Approval, brief: Brief) -> Decision:
         key = approval.decision_id
@@ -71,6 +93,11 @@ class RAGMemory:
             frozenset(approval.scope_keys),
             approval.kind,
             tuple(approval.brief_clause_ids),
+            sentence_ids=None
+            if self._episode is None
+            else frozenset(
+                sentence.id for sentence in approval_sites(self._episode, approval)
+            ),
         )
         rationale = " ".join(
             clauses[clause_id] for clause_id in decision.brief_clause_ids
@@ -156,7 +183,7 @@ class RAGMemory:
 
 
 def _decision_data(decision: Decision) -> dict[str, object]:
-    return {
+    data: dict[str, object] = {
         "decision_id": decision.ref.decision_id,
         "version": decision.ref.version,
         "value": decision.value,
@@ -164,6 +191,9 @@ def _decision_data(decision: Decision) -> dict[str, object]:
         "kind": decision.kind,
         "strength": decision.strength,
     }
+    if decision.sentence_ids is not None:
+        data["sentence_ids"] = sorted(decision.sentence_ids)
+    return data
 
 
 def _note_data(note: Note) -> dict[str, object]:

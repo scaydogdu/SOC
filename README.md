@@ -153,6 +153,19 @@ uv run --locked python -m soc.orchestrator.live soc \
 
 Use `soc-replay` with the same campaign, condition, episode and principal key and a fresh run directory for cache-only replay. For deterministic replay from an empty ledger, configure `max_in_flight: 1`. Reopening the original run directory retains prepared call prompts, restores recorded token use and resumes saved work.
 
+## Paired RAG and SOC runs
+
+Use `memory: rag` at the top level of a model-backed condition to run the same triad on the RAG workflow. The RAG arm uses the pinned local BGE-M3 checkpoint and accepts optional `retrieval` settings for `top_k` and `dense_weight`. It carries reusable terms in its notes and selects prior chunks for repair by searching their translated text. The SOC arm selects repairs from ledger usage. The model-backed RAG runner is sequential. Set `run.max_in_flight: 1` in the paired SOC condition to match scheduling, and use distinct run IDs with the same model team, agreement table, resolution mode, effort, and replicate.
+
+Run the repair-precision report on the evaluation side with the frozen episode and the two run directories.
+
+```bash
+uv run --locked --offline python -m eval.repair_precision /path/to/frozen-episode \
+  --rag /path/to/rag-run --soc /path/to/soc-run
+```
+
+The report counts each scheduled decision and selected chunk once. A selection is correct if the frozen episode marks at least one repair site in that chunk for that decision. It also lists the number of annotated chunks and reports null precision when an arm selects no chunks. The benchmark annotations stay in the evaluation process.
+
 ## Episode authoring
 
 Create a draft from an inclusive RFC section range. The generator makes one chunk per section, retains stable source IDs, and prints candidate scope keys. Add `--glossary FILE` to include known terms. Fill the brief, events, preferences, seeds, and affected sites in the draft before sealing it.

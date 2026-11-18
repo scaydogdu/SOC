@@ -334,3 +334,82 @@ def test_reusable_term_scope_stops_at_scheduled_principal_approval(tmp_path):
         assert ledger.reusable_term_sites(sentences[2]["id"], "gateway") == ()
         with pytest.raises(ValueError, match="scope key"):
             ledger.reusable_term_sites(sentences[0]["id"], "unmatched")
+
+
+def test_rag_uses_same_model_protocol_and_delivers_reusable_term_notes(tmp_path):
+    from soc.baseline.retrieval import HashEmbedder
+    from soc.orchestrator.model_rag import run_model_rag_episode
+
+    public = tmp_path / "public"
+    _episode(public)
+    key = tmp_path / "principal.yaml"
+    key.write_text("answers: {}\n")
+    principal = PrincipalSimulator(
+        key, tmp_path / "answers.sqlite", episode_id="scope", actor=CLIENT
+    )
+    models = _TranslationModels()
+    models.interrupt = models.retry_review = False
+    cache = ResponseCache(tmp_path / "cache.sqlite")
+    routes = {
+        model: Route(model.split("/")[0], models)
+        for model in (
+            SPEC.initial_model,
+            SPEC.successor_model,
+            TEAM.peer_model,
+            TEAM.reviewer_model,
+        )
+    }
+
+    async def run(dir, mode):
+        return await run_model_rag_episode(
+            public,
+            dir,
+            spec=SPEC.model_copy(update={"condition": "rag"}),
+            experiment=ExperimentSettings(),
+            principal=principal,
+            checker=Checker(),
+            client=ModelClient(
+                run_id=SPEC.run_id,
+                mode=mode,
+                run_dir=dir,
+                cache=cache,
+                limits=RunLimits(token_cap=1000),
+                prices={
+                    model: Price(input_per_million=0, output_per_million=0)
+                    for model in routes
+                },
+                routes=routes if mode is Mode.LIVE else None,
+                provider_limits={
+                    route.family: ProviderLimits(requests_per_minute=1e12)
+                    for route in routes.values()
+                },
+            ),
+            team=TEAM,
+            agreement=read_yaml(Path("config/m2-agreement.yaml"), AgreementRules),
+            embedder=HashEmbedder(),
+        )
+
+    recorded = tmp_path / "rag"
+    result = asyncio.run(run(recorded, Mode.LIVE))
+    assert result.status == "completed" and result.chunks_completed == 4
+    assert result.input_tokens + result.output_tokens == sum(
+        cache.call_usage(SPEC.run_id).values()
+    )
+    assert len([stage for stage, _, _ in models.calls if stage == "Ballot"]) == 3
+    later = [
+        body
+        for stage, _, body in models.calls
+        if stage == "DraftReply" and body["source"][0]["id"] == "9999-1-s03"
+    ]
+    assert len(later) == 2 and all(TERM in body["retrieved_context"] for body in later)
+    assert any(
+        "Partial translation" in body.get("memory_handover", "") for body in later
+    )
+    calls = len(models.calls)
+    assert asyncio.run(run(recorded, Mode.LIVE)) == result
+    replay = tmp_path / "replay"
+    assert asyncio.run(run(replay, Mode.REPLAY)) == result
+    assert len(models.calls) == calls
+    for name in ("final_chunks.jsonl", "final_findings.jsonl", "events.jsonl"):
+        assert (recorded / name).read_bytes() == (replay / name).read_bytes()
+    assert not (recorded / "ledger.sqlite").exists()

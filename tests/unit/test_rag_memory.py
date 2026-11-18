@@ -260,3 +260,26 @@ def test_local_bge_model_returns_normalized_vectors(monkeypatch):
     assert hypot(*vector) == pytest.approx(1.0, abs=1e-6)
     assert embedder.embed("erişim belirteci") != vector
     assert lookups == []
+
+
+def test_reusable_term_notes_preserve_first_rendering_at_overlapping_sites():
+    from soc.memory import TermNote
+
+    memory = RAGMemory(HashEmbedder(), Checker())
+    origin = TermNote(
+        decision_id="origin",
+        scope_key="gateway",
+        rendering="ağ geçidi",
+        sentence_ids=("s01", "s02"),
+    )
+    memory.remember_term(origin)
+    memory.remember_term(origin)
+    memory.remember_term(
+        origin.model_copy(update={"decision_id": "overlap", "rendering": "kapı"})
+    )
+    memory.remember_term(
+        origin.model_copy(update={"decision_id": "disjoint", "sentence_ids": ("s03",)})
+    )
+    assert len(memory.history("origin")) == 1
+    assert memory.history("overlap") == ()
+    assert len(memory.history("disjoint")) == 1

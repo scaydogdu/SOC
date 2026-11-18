@@ -105,3 +105,33 @@ baseline: 26/26 branches (100.0%)
 ```
 
 M2 exit remains open. Fresh strict replay was verified with one chunk in flight. RAG triad parity, paired repair-precision reporting, and live runs in the SOC conditions remain pending. This execution environment has no configured provider credentials. The published campaign still records failed Gemini probes.
+
+## RAG triad parity and paired repair precision
+
+The model-backed RAG arm now uses the same draft, cross-examination, open discussion, classification, voting and principal callbacks as the SOC arm. RAG retains reusable terms in the glossary and retrieval index. It hands over the RAG notes and partial translation and uses text search to select prior chunks for repair. The shared public schedule defines where scheduled approvals and reusable terms apply. A RAG checkpoint retains agreed terms and principal answers for replay. The campaign condition selects the arm with `memory`. For matched scheduling the paired run uses one chunk in flight in both arms.
+
+The evaluation-side command `python -m eval.repair_precision` reads the frozen repair sites and both run directories. It compares matched runs by scheduled decision and chunk, with a correct selection requiring an annotated repair site in that chunk. It reports counts and precision per decision and overall. The scripted toy selected five repair pairs in RAG and four in SOC, with two annotated pairs in each selection. This is a fixture result in which a pre-approval occurrence adds one RAG text match.
+
+New checks
+
+- `test_rag_uses_same_model_protocol_and_delivers_reusable_term_notes`
+- `test_reusable_term_notes_preserve_first_rendering_at_overlapping_sites`
+- `test_paired_model_arms_measure_brief_change_repair_selection`
+
+`./scripts/check` exited successfully.
+
+```text
+All checks passed!
+94 files already formatted
+Success: no issues found in 51 source files
+Contracts: 1 kept, 0 broken.
+258 passed, 2 deselected in 42.56s
+ledger: 340/368 branches (92.4%)
+episode: 52/54 branches (96.3%)
+segmenter: 67/68 branches (98.5%)
+providers: 150/160 branches (93.8%)
+checker: 66/68 branches (97.1%)
+baseline: 34/34 branches (100.0%)
+```
+
+M2 live condition verification remains open. The current execution environment exposes zero configured provider families. The guarded launcher still requires passing effort probes for the selected roster.

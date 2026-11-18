@@ -1,6 +1,6 @@
 """Drive the existing triad protocol through the shared structured model client."""
 
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -51,6 +51,7 @@ from soc.triad.agreement import (
     Decision,
     DecisionType,
     PrincipalResolution,
+    TriadResult,
     run_triad,
 )
 from soc.triad.examination import (
@@ -59,6 +60,7 @@ from soc.triad.examination import (
     Difference,
     Draft,
     Examination,
+    ReadEvidence,
     Turn,
     align_drafts,
 )
@@ -110,9 +112,13 @@ class _PreparedCall(BaseModel, extra="forbid"):
     messages: tuple[Message, ...]
 
 
-class _CallFailed(Exception):
+class TriadCallFailed(Exception):
     def __init__(self, outcome: Outcome) -> None:
         self.outcome = outcome
+
+
+def reusable_term_id(key: str, sentence_id: str) -> str:
+    return f"term-{digest(json_text([key, sentence_id]))[:24]}"
 
 
 def _examination(examination: Examination) -> dict[str, object]:
@@ -147,12 +153,11 @@ async def run_model_ledger_episode(
     if client.run_id != spec.run_id or client.run_dir != run_dir.resolve():
         raise ValueError("model client must belong to the SOC run")
     team.validate(spec, client)
-    worker = _ModelTriad(spec, experiment, client, team, agreement, principal, checker)
+    worker = ModelTriad(spec, experiment, client, team, agreement, principal, checker)
     fingerprint = digest(
         json_text(
             [
-                asdict(team),
-                agreement.model_dump(mode="json"),
+                worker.configuration,
                 client.limits.model_dump(mode="json"),
                 {
                     model: price.model_dump()
@@ -172,10 +177,19 @@ async def run_model_ledger_episode(
         checker=checker,
         worker=worker,
         worker_fingerprint=fingerprint,
+        model_protocol=worker.configuration,
     )
 
 
-class _ModelTriad:
+@dataclass(frozen=True)
+class TriadMemoryView:
+    evidence: ReadEvidence
+    revision_hints: Callable[[str], list[dict[str, object]]]
+    answer: Callable[[str, str], Awaitable[str]]
+    flag: Callable[[Difference], None]
+
+
+class ModelTriad:
     def __init__(
         self,
         spec: LedgerRunSpec,
@@ -190,6 +204,10 @@ class _ModelTriad:
         self.experiment = experiment
         self.client = client
         self.agreement = agreement
+        self.configuration: dict[str, object] = {
+            "team": asdict(team),
+            "agreement": agreement.model_dump(mode="json"),
+        }
         self.principal = principal
         self.checker = checker
         self.peer = Actor(agent="peer", model=team.peer_model, role="worker")
@@ -200,7 +218,7 @@ class _ModelTriad:
     async def __call__(self, ledger: Ledger, task: ChunkTask) -> WorkerDraft | Outcome:
         try:
             return await self._run(ledger, task)
-        except _CallFailed as error:
+        except TriadCallFailed as error:
             return error.outcome
         except CacheMiss:
             return Outcome.CACHE_MISS
@@ -208,12 +226,6 @@ class _ModelTriad:
             return Outcome.PARSE_FAILED
 
     async def _run(self, ledger: Ledger, task: ChunkTask) -> WorkerDraft:
-        actors = {
-            actor.agent: actor for actor in (task.actor, self.peer, self.reviewer)
-        }
-        source = task.chunk.sentences
-        by_id = {sentence.id: sentence for sentence in source}
-        classified: dict[str, Classification] = {}
         used_versions = [
             VersionRef(commitment_id=row.commitment_id, version=row.version)
             for row in task.commitments.values()
@@ -226,6 +238,73 @@ class _ModelTriad:
             return Brief(
                 clauses=[Clause(id=key, text=text) for key, text in clauses.items()]
             ), state.current
+
+        def record_flag(difference: Difference) -> None:
+            ledger.record(
+                self.reviewer,
+                FlagRaised(
+                    flag_id=f"{task.chunk_id}/r{task.round_number}/{difference.sentence_id}",
+                    sentence_id=difference.sentence_id,
+                    reason="Draft renderings differ",
+                ),
+                chunk_id=task.chunk_id,
+            )
+
+        async def answer(question_id: str, question: str) -> str:
+            return await self.principal.answer(
+                ledger, question_id, question, chunk_id=task.chunk_id
+            )
+
+        def hints(sentence_id: str) -> list[dict[str, object]]:
+            return [
+                {
+                    "used": hint.used.model_dump(mode="json"),
+                    "current_rendering": hint.current.rendering,
+                }
+                for hint in ledger.revision_hints(used_versions)
+                if hint.current.sentence_ids is None
+                or sentence_id in hint.current.sentence_ids
+            ]
+
+        result, originals = await self.resolve(
+            task, TriadMemoryView(read_evidence, hints, answer, record_flag), []
+        )
+        for original, actor in zip(originals, (task.actor, self.peer), strict=True):
+            capture_worker_draft(
+                ledger,
+                actor,
+                task.chunk_id,
+                task.chunk,
+                original,
+                checker=self.checker,
+                at=task.ledger_version,
+            )
+        observed = task.ledger_version
+        for decision in result.decisions:
+            sid = decision.examination.difference.sentence_id
+            if decision.term is not None:
+                updated = self._record_term(ledger, task, decision)
+                if updated is not None:
+                    observed = max(observed, updated)
+            ledger.record(
+                self.reviewer,
+                FlagResolved(flag_id=f"{task.chunk_id}/r{task.round_number}/{sid}"),
+                chunk_id=task.chunk_id,
+            )
+        return WorkerDraft(Draft(task.actor.agent, result.draft), observed)
+
+    async def resolve(
+        self,
+        task: ChunkTask,
+        memory: TriadMemoryView,
+        usage: list[tuple[int, int, float]],
+    ) -> tuple[TriadResult, tuple[Draft, Draft]]:
+        actors = {
+            actor.agent: actor for actor in (task.actor, self.peer, self.reviewer)
+        }
+        source = task.chunk.sentences
+        by_id = {sentence.id: sentence for sentence in source}
+        classified: dict[str, Classification] = {}
 
         async def ask[T: BaseModel](
             actor: Actor,
@@ -274,8 +353,15 @@ class _ModelTriad:
                 ),
                 recover=True,
             )
+            usage.append(
+                (
+                    reply.reply.input_tokens,
+                    reply.reply.output_tokens,
+                    reply.estimated_cost_usd,
+                )
+            )
             if reply.parsed is None:
-                raise _CallFailed(reply.reply.outcome)
+                raise TriadCallFailed(reply.reply.outcome)
             return reply.parsed
 
         def relevant(
@@ -303,20 +389,12 @@ class _ModelTriad:
             ]
 
         def working_context(sentence_id: str) -> dict[str, object]:
-            brief, commitments = read_evidence()
+            brief, commitments = memory.evidence()
             return {
                 "source": by_id[sentence_id].model_dump(mode="json"),
                 "brief": brief.model_dump(mode="json"),
                 "commitments": relevant(commitments),
-                "revision_hints": [
-                    {
-                        "used": hint.used.model_dump(mode="json"),
-                        "current_rendering": hint.current.rendering,
-                    }
-                    for hint in ledger.revision_hints(used_versions)
-                    if hint.current.sentence_ids is None
-                    or sentence_id in hint.current.sentence_ids
-                ],
+                "revision_hints": memory.revision_hints(sentence_id),
             }
 
         async def draft(actor: Actor) -> Draft:
@@ -340,7 +418,8 @@ class _ModelTriad:
                     ],
                     "repair_hints": [
                         hint.current.model_dump(mode="json") for hint in task.hints
-                    ],
+                    ]
+                    or memory.revision_hints(source[0].id),
                     "handover": None
                     if handover is None
                     else {
@@ -359,7 +438,17 @@ class _ModelTriad:
                             for key, output in sorted(handover.partial_output.items())
                         },
                     },
-                },
+                }
+                | (
+                    {"retrieved_context": task.retrieval}
+                    if task.retrieval is not None
+                    else {}
+                )
+                | (
+                    {"memory_handover": task.memory_handover}
+                    if task.memory_handover is not None and actor == task.actor
+                    else {}
+                ),
             )
             return Draft(
                 actor.agent,
@@ -372,17 +461,9 @@ class _ModelTriad:
         try:
             differences = align_drafts(task.chunk, first, second)
         except ValueError as exc:
-            raise _CallFailed(Outcome.PARSE_FAILED) from exc
+            raise TriadCallFailed(Outcome.PARSE_FAILED) from exc
         for difference in differences:
-            ledger.record(
-                self.reviewer,
-                FlagRaised(
-                    flag_id=f"{task.chunk_id}/r{task.round_number}/{difference.sentence_id}",
-                    sentence_id=difference.sentence_id,
-                    reason="Draft renderings differ",
-                ),
-                chunk_id=task.chunk_id,
-            )
+            memory.flag(difference)
 
         async def review(
             difference: Difference, history: tuple[Turn, ...]
@@ -402,7 +483,7 @@ class _ModelTriad:
                 first.worker,
                 second.worker,
             }:
-                raise _CallFailed(Outcome.PARSE_FAILED)
+                raise TriadCallFailed(Outcome.PARSE_FAILED)
             return reply.challenge
 
         response_rounds: dict[str, int] = {}
@@ -456,9 +537,10 @@ class _ModelTriad:
             if reply.term is not None:
                 try:
                     reply.term.validate_difference(examination)
-                    ledger.reusable_term_sites(sid, reply.term.scope_key)
+                    if reply.term.scope_key not in by_id[sid].scope_keys:
+                        raise ValueError("term requires a scope key at this sentence")
                 except ValueError as exc:
-                    raise _CallFailed(Outcome.PARSE_FAILED) from exc
+                    raise TriadCallFailed(Outcome.PARSE_FAILED) from exc
             classified[sid] = reply
             return reply
 
@@ -489,11 +571,8 @@ class _ModelTriad:
                     classification.question
                     or f"What is the approved {kind} rendering for {sid}?"
                 )
-            answer = await self.principal.answer(
-                ledger,
-                f"{task.chunk_id}/r{task.round_number}/{sid}",
-                question,
-                chunk_id=task.chunk_id,
+            answer = await memory.answer(
+                f"{task.chunk_id}/r{task.round_number}/{sid}", question
             )
             return PrincipalResolution(rendering=answer)
 
@@ -514,31 +593,9 @@ class _ModelTriad:
             respond=respond,
             mode=task.resolution,
             discuss=discuss,
-            read_evidence=read_evidence,
+            read_evidence=memory.evidence,
         )
-        for original in (first, second):
-            capture_worker_draft(
-                ledger,
-                actors[original.worker],
-                task.chunk_id,
-                task.chunk,
-                original,
-                checker=self.checker,
-                at=task.ledger_version,
-            )
-        observed = task.ledger_version
-        for decision in result.decisions:
-            sid = decision.examination.difference.sentence_id
-            if decision.term is not None:
-                updated = self._record_term(ledger, task, decision)
-                if updated is not None:
-                    observed = max(observed, updated)
-            ledger.record(
-                self.reviewer,
-                FlagResolved(flag_id=f"{task.chunk_id}/r{task.round_number}/{sid}"),
-                chunk_id=task.chunk_id,
-            )
-        return WorkerDraft(Draft(task.actor.agent, result.draft), observed)
+        return result, (first, second)
 
     def _record_term(
         self, ledger: Ledger, task: ChunkTask, decision: Decision
@@ -554,7 +611,7 @@ class _ModelTriad:
         )
         authority = ledger.authority
         assert authority is not None
-        identifier = f"term-{digest(json_text([key, sid]))[:24]}"
+        identifier = reusable_term_id(key, sid)
         state = ledger.snapshot()
         if current := state.current.get(identifier):
             return max(task.ledger_version, current.valid_from)
