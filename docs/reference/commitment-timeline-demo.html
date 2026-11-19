@@ -1,0 +1,419 @@
+<title>SOC Commitment Timeline</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: summary band, then a decision x chunk matrix with a detail rail, then the ledger strip and event log. */
+:root {
+  --bg: #F6F5F0; --surface: #FCFBF8; --sunk: #ECEAE2; --line: #D6D2C6;
+  --fg: #14213D; --body: #3F4A62; --muted: #5F6878;
+  --accent: #C4581C; --exec: #2F5F9E;
+  --ok: #2E7A4F; --ok-bg: #E2EFE6; --warn: #9A6412; --warn-bg: #F6EBD6; --bad: #B03434; --bad-bg: #F6E0DE;
+  --vote: #7A6BA8; --ctx: #2F5F9E;
+  --display: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif;
+  --text: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #10172A; --surface: #172038; --sunk: #0C1222; --line: #2C3756;
+  --fg: #EEF1F7; --body: #C3CBDC; --muted: #93A0B8;
+  --accent: #F08A4B; --exec: #7EA6E0;
+  --ok: #6CC793; --ok-bg: #1B3428; --warn: #E3B262; --warn-bg: #3A2E17; --bad: #F08A8A; --bad-bg: #3D1F24;
+  --vote: #B3A6E0; --ctx: #7EA6E0; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #10172A; --surface: #172038; --sunk: #0C1222; --line: #2C3756;
+  --fg: #EEF1F7; --body: #C3CBDC; --muted: #93A0B8;
+  --accent: #F08A4B; --exec: #7EA6E0;
+  --ok: #6CC793; --ok-bg: #1B3428; --warn: #E3B262; --warn-bg: #3A2E17; --bad: #F08A8A; --bad-bg: #3D1F24;
+  --vote: #B3A6E0; --ctx: #7EA6E0; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--text); margin: 0; }
+.wrap { max-width: 1280px; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 28px; }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(26px, 4vw, 38px); font-weight: 700; letter-spacing: -0.5px; }
+h2 { font-size: 20px; font-weight: 600; }
+h3 { font-size: 16px; font-weight: 600; }
+p { margin: 0; }
+.eyebrow { font: 600 12px/1.2 var(--mono); letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); }
+.mono { font-family: var(--mono); }
+.muted { color: var(--muted); }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* header */
+header { display: flex; flex-direction: column; gap: 10px; }
+.lede { color: var(--body); max-width: 70ch; }
+.note { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; color: var(--warn); background: var(--warn-bg); border-radius: 6px; padding: 4px 10px; width: fit-content; }
+.stats { display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: 6px; }
+.stat { display: flex; flex-direction: column; }
+.stat b { font: 600 24px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.stat span { font-size: 13px; color: var(--muted); }
+
+/* main grid */
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+@media (max-width: 980px) { .main { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+
+/* matrix */
+.matrix-box { overflow-x: auto; }
+.matrix { display: grid; grid-template-columns: minmax(190px, 1.25fr) repeat(var(--n), minmax(132px, 1fr)); min-width: 720px; }
+.mx { padding: 12px 14px; border-bottom: 1px solid var(--line); min-width: 0; }
+.mx.head { font-size: 13px; color: var(--muted); padding-top: 34px; position: relative; }
+.mx.col { cursor: pointer; }
+.mx.col:hover, .mx.cell:hover, .mx.rowlab:hover { background: var(--sunk); }
+.mx.sel { background: var(--sunk); box-shadow: inset 0 0 0 2px var(--accent); }
+.mx.last { border-bottom: 0; }
+.chunk-name { font: 600 15px var(--display); color: var(--fg); }
+.exec-edge { border-left: 2px dashed var(--exec); }
+.brief-edge { border-left: 2px solid var(--accent); }
+.edge-label { position: absolute; top: 8px; left: 8px; font: 600 11px/1.2 var(--mono); letter-spacing: .5px; white-space: nowrap; }
+.exec-edge .edge-label { color: var(--exec); }
+.brief-edge .edge-label { color: var(--accent); }
+.rowlab { cursor: pointer; display: flex; flex-direction: column; gap: 3px; }
+.rowlab .id { font: 600 15px var(--display); }
+.rowlab .kind { font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+.rowlab .vals { font-size: 13px; color: var(--body); }
+.cell { cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.na { color: var(--muted); font-size: 13px; }
+.chip { font: 600 12px/1 var(--mono); padding: 5px 7px; border-radius: 5px; border: 1px solid transparent; white-space: nowrap; }
+.chip.current { color: var(--ok); background: var(--ok-bg); }
+.chip.stale { color: var(--warn); background: var(--warn-bg); }
+.chip.blocked { color: var(--bad); background: var(--bad-bg); }
+.chip.final { border-color: currentColor; }
+.arrow { color: var(--muted); font-size: 12px; }
+.buildrow .chip { font-size: 11px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 12px 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--body); align-items: center; }
+.legend .sw { display: inline-flex; gap: 6px; align-items: center; }
+.legend .line { display: inline-block; width: 18px; height: 0; border-top: 2px dashed var(--exec); }
+.legend .line.brief { border-top: 2px solid var(--accent); }
+
+/* detail */
+.detail { padding: 18px; display: flex; flex-direction: column; gap: 14px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); max-height: calc(100vh - 32px); overflow: auto; }
+@media (max-width: 980px) { .detail { position: static; max-height: none; } }
+.detail dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: 14px; }
+.detail dt { color: var(--muted); }
+.detail dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.vcard { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.ballots { display: flex; flex-wrap: wrap; gap: 6px; }
+.ballot { font: 12px var(--mono); padding: 3px 7px; border-radius: 5px; background: var(--sunk); }
+.ballot.dissent { color: var(--bad); }
+.ballot.abstain { color: var(--muted); }
+.sent { font-size: 13px; color: var(--body); }
+.tag { font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .8px; padding: 2px 6px; border-radius: 4px; background: var(--sunk); color: var(--muted); }
+
+/* strip */
+.strip { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.strip svg { width: 100%; height: auto; display: block; }
+.strip-box { overflow-x: auto; }
+.strip-box svg { min-width: 680px; }
+
+/* log */
+.log { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+.log-head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 11px; font-size: 13px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.filter[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.scope { font-size: 13px; color: var(--body); display: flex; gap: 8px; align-items: center; }
+.scope button { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; text-decoration: underline; }
+.table-box { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 640px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 12px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .8px; }
+td.seq, td.hash { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+td.type { white-space: nowrap; }
+.tpill { font: 600 12px var(--mono); display: inline-flex; gap: 6px; align-items: center; }
+tr.hl td { background: var(--sunk); }
+@media (prefers-reduced-motion: no-preference) { .mx, .filter { transition: background-color .15s; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Flag, Negotiate, Commit · SOC ledger</p>
+    <h1>Commitment timeline</h1>
+    <p class="lede">Which version of each approved decision every chunk was built on, how the ledger flagged chunks after a revision, and how they were repaired. Every figure is read from the ledger’s events.</p>
+    <p class="note" id="note"></p>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <div class="main">
+    <section class="panel">
+      <div class="matrix-box"><div class="matrix" id="matrix"></div></div>
+      <div class="legend">
+        <span class="sw"><span class="chip current">b1·v1</span> build used the current version</span>
+        <span class="sw"><span class="chip stale">b1·v1</span> later flagged stale by a revision</span>
+        <span class="sw"><span class="chip blocked">b2·v1</span> gate blocked it</span>
+        <span class="sw"><span class="line"></span> executor change</span>
+        <span class="sw"><span class="line brief"></span> brief change</span>
+      </div>
+    </section>
+    <aside class="panel detail" id="detail" aria-live="polite"></aside>
+  </div>
+
+  <section class="panel strip">
+    <h2>Ledger sequence</h2>
+    <p class="muted" style="font-size:14px">Each tick is one appended, hash-chained event. Hover a tick for its type.</p>
+    <div class="strip-box"><svg id="strip" viewBox="0 0 1000 120" role="img" aria-label="Ledger events in sequence order"></svg></div>
+  </section>
+
+  <section class="panel log">
+    <div class="log-head">
+      <h2>Event log</h2>
+      <div class="filters" id="filters"></div>
+    </div>
+    <div class="scope" id="scope" hidden></div>
+    <div class="table-box"><table><thead><tr><th>Seq</th><th>Event</th><th>Actor</th><th>What happened</th><th>Hash</th></tr></thead><tbody id="log"></tbody></table></div>
+  </section>
+</div>
+
+<script type="application/json" id="data">{"run":"toy-demo","note":"Scripted demonstration on the toy episode. Not experiment data.","chunks":[{"id":"chunk-1","sentences":[{"id":"9999-1-s01","text":"An access token lets the client use a resource. ","keys":["access token","client"]},{"id":"9999-1-s02","text":"A refresh token can renew access.","keys":["refresh token"]}]},{"id":"chunk-2","sentences":[{"id":"9999-1-s03","text":"The client MUST protect the access token and refresh token. ","keys":["MUST","access token","client","refresh token"]},{"id":"9999-1-s04","text":"The exception applies only to public clients.","keys":["public client"]}]},{"id":"chunk-3","sentences":[{"id":"9999-2-s01","text":"The client MUST protect both the access token and refresh token. ","keys":["MUST","access token","client","refresh token"]},{"id":"9999-2-s02","text":"Apply the exception only to public clients.","keys":["public client"]}]},{"id":"chunk-4","sentences":[{"id":"9999-2-s03","text":"The client MUST protect the access token and refresh token. ","keys":["MUST","access token","client","refresh token"]},{"id":"9999-2-s04","text":"The exception applies only to native public clients.","keys":["public client"]}]}],"executor_change_after":2,"brief_change_after":3,"decisions":[{"id":"D1","kind":"term","key":"access token"},{"id":"D2","kind":"term","key":"refresh token"},{"id":"D3","kind":"term","key":"client"},{"id":"D4","kind":"normative","key":"MUST"},{"id":"D5","kind":"scope","key":"public client"}],"final_stale":[],"events":[{"seq":1,"type":"Ratified","actor":"reviewer","role":"reviewer","commitment":"D1","base":0,"new":1,"chunk":null,"data":{"approval":{"approvers":["worker-a","reviewer"],"operation":"toy","triad":["worker-a","worker-b","reviewer"]},"brief_citations":[{"clause_id":"B1","ledger_version":0,"text":"Translate for Turkish protocol implementers and preserve normative force."}],"commitment":{"authority":"triad","creditor":"reader","debtor":"client","id":"D1","operation":"toy","owner":"reviewer","subject":{"key":"access token","kind":"term"}},"commitment_citations":[],"reason":"triad agreement","version":{"commitment_id":"D1","consistency":"QUORUM","evidence":["source:9999-1-s01","brief:B1"],"proposer":"worker-a","ratifier":"reviewer","rationale":"Agreed in the chunk 1 triad (term)","rendering":"erişim jetonu","rule":{"kind":"term","parameters":{"key":"access token"}},"scope":["access token"],"sentence_ids":["9999-1-s01","9999-1-s03","9999-2-s01","9999-2-s03"],"source_quote":{"sentence_id":"9999-1-s01","text":"access token"},"state":"ratified","strength":"must","valid_from":1,"valid_until":null,"version":1}},"hash":"f094d99accd9"},{"seq":2,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D1","base":0,"new":null,"chunk":null,"data":{"choice":"erişim jetonu","decision_id":"urn:soc:version:D1/1","voter":"worker-a"},"hash":"95b1c476e3c8"},{"seq":3,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D1","base":0,"new":null,"chunk":null,"data":{"choice":"erişim belirteci","decision_id":"urn:soc:version:D1/1","voter":"worker-b"},"hash":"f42f763b50a1"},{"seq":4,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D1","base":0,"new":null,"chunk":null,"data":{"choice":"erişim jetonu","decision_id":"urn:soc:version:D1/1","voter":"reviewer"},"hash":"1eb7c4e257f5"},{"seq":5,"type":"Ratified","actor":"reviewer","role":"reviewer","commitment":"D2","base":0,"new":1,"chunk":null,"data":{"approval":{"approvers":["worker-a","reviewer"],"operation":"toy","triad":["worker-a","worker-b","reviewer"]},"brief_citations":[{"clause_id":"B1","ledger_version":0,"text":"Translate for Turkish protocol implementers and preserve normative force."}],"commitment":{"authority":"triad","creditor":"reader","debtor":"client","id":"D2","operation":"toy","owner":"reviewer","subject":{"key":"refresh token","kind":"term"}},"commitment_citations":[],"reason":"triad agreement","version":{"commitment_id":"D2","consistency":"QUORUM","evidence":["source:9999-1-s02","brief:B1"],"proposer":"worker-a","ratifier":"reviewer","rationale":"Agreed in the chunk 1 triad (term)","rendering":"yenileme belirteci","rule":{"kind":"term","parameters":{"key":"refresh token"}},"scope":["refresh token"],"sentence_ids":["9999-1-s02","9999-1-s03","9999-2-s01","9999-2-s03"],"source_quote":{"sentence_id":"9999-1-s02","text":"refresh token"},"state":"ratified","strength":"must","valid_from":5,"valid_until":null,"version":1}},"hash":"601986e3c5ce"},{"seq":6,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D2","base":0,"new":null,"chunk":null,"data":{"choice":"yenileme belirteci","decision_id":"urn:soc:version:D2/1","voter":"worker-a"},"hash":"9e4e0246b629"},{"seq":7,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D2","base":0,"new":null,"chunk":null,"data":{"choice":null,"decision_id":"urn:soc:version:D2/1","voter":"worker-b"},"hash":"627222b43cc9"},{"seq":8,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D2","base":0,"new":null,"chunk":null,"data":{"choice":"yenileme belirteci","decision_id":"urn:soc:version:D2/1","voter":"reviewer"},"hash":"496260b8b31f"},{"seq":9,"type":"Ratified","actor":"reviewer","role":"reviewer","commitment":"D3","base":0,"new":1,"chunk":null,"data":{"approval":{"approvers":["worker-a","reviewer"],"operation":"toy","triad":["worker-a","worker-b","reviewer"]},"brief_citations":[{"clause_id":"B1","ledger_version":0,"text":"Translate for Turkish protocol implementers and preserve normative force."}],"commitment":{"authority":"triad","creditor":"reader","debtor":"client","id":"D3","operation":"toy","owner":"reviewer","subject":{"key":"client","kind":"term"}},"commitment_citations":[],"reason":"triad agreement","version":{"commitment_id":"D3","consistency":"QUORUM","evidence":["source:9999-1-s01","brief:B1"],"proposer":"worker-a","ratifier":"reviewer","rationale":"Agreed in the chunk 1 triad (term)","rendering":"istemci","rule":{"kind":"term","parameters":{"key":"client"}},"scope":["client"],"sentence_ids":["9999-1-s01","9999-1-s03","9999-2-s01","9999-2-s03"],"source_quote":{"sentence_id":"9999-1-s01","text":"client"},"state":"ratified","strength":"must","valid_from":9,"valid_until":null,"version":1}},"hash":"8647ca73ecdc"},{"seq":10,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D3","base":0,"new":null,"chunk":null,"data":{"choice":"istemci","decision_id":"urn:soc:version:D3/1","voter":"worker-a"},"hash":"d4c558dc9e8b"},{"seq":11,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D3","base":0,"new":null,"chunk":null,"data":{"choice":null,"decision_id":"urn:soc:version:D3/1","voter":"worker-b"},"hash":"cda4cbf62cef"},{"seq":12,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D3","base":0,"new":null,"chunk":null,"data":{"choice":"istemci","decision_id":"urn:soc:version:D3/1","voter":"reviewer"},"hash":"24ead6cc4d93"},{"seq":13,"type":"Ratified","actor":"reviewer","role":"reviewer","commitment":"D4","base":0,"new":1,"chunk":null,"data":{"approval":{"approvers":["worker-a","worker-b","reviewer"],"operation":"toy","triad":["worker-a","worker-b","reviewer"]},"brief_citations":[{"clause_id":"B1","ledger_version":0,"text":"Translate for Turkish protocol implementers and preserve normative force."}],"commitment":{"authority":"triad","creditor":"reader","debtor":"client","id":"D4","operation":"toy","owner":"reviewer","subject":{"key":"MUST","kind":"normative"}},"commitment_citations":[],"reason":"triad agreement","version":{"commitment_id":"D4","consistency":"ALL","evidence":["source:9999-1-s03","brief:B1"],"proposer":"worker-a","ratifier":"reviewer","rationale":"Agreed in the chunk 1 triad (normative)","rendering":"Bağlayıcı yükümlülük","rule":{"kind":"normative","parameters":{"key":"MUST"}},"scope":["MUST"],"sentence_ids":["9999-1-s03","9999-2-s01","9999-2-s03"],"source_quote":{"sentence_id":"9999-1-s03","text":"MUST"},"state":"ratified","strength":"must","valid_from":13,"valid_until":null,"version":1}},"hash":"6adede859dfa"},{"seq":14,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D4","base":0,"new":null,"chunk":null,"data":{"choice":"Bağlayıcı yükümlülük","decision_id":"urn:soc:version:D4/1","voter":"worker-a"},"hash":"09971e674cce"},{"seq":15,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D4","base":0,"new":null,"chunk":null,"data":{"choice":"Bağlayıcı yükümlülük","decision_id":"urn:soc:version:D4/1","voter":"worker-b"},"hash":"ce0553a07617"},{"seq":16,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D4","base":0,"new":null,"chunk":null,"data":{"choice":"Bağlayıcı yükümlülük","decision_id":"urn:soc:version:D4/1","voter":"reviewer"},"hash":"e9fe17844b21"},{"seq":17,"type":"Ratified","actor":"reviewer","role":"reviewer","commitment":"D5","base":0,"new":1,"chunk":null,"data":{"approval":{"approvers":["worker-a","reviewer"],"operation":"toy","triad":["worker-a","worker-b","reviewer"]},"brief_citations":[{"clause_id":"B1","ledger_version":0,"text":"Translate for Turkish protocol implementers and preserve normative force."}],"commitment":{"authority":"triad","creditor":"reader","debtor":"client","id":"D5","operation":"toy","owner":"reviewer","subject":{"key":"public client","kind":"scope"}},"commitment_citations":[],"reason":"triad agreement","version":{"commitment_id":"D5","consistency":"QUORUM","evidence":["source:9999-1-s04","brief:B1"],"proposer":"worker-a","ratifier":"reviewer","rationale":"Agreed in the chunk 1 triad (scope)","rendering":"Yalnızca genel istemciler","rule":{"kind":"scope","parameters":{"key":"public client"}},"scope":["public client"],"sentence_ids":["9999-1-s04","9999-2-s02","9999-2-s04"],"source_quote":{"sentence_id":"9999-1-s04","text":"public clients"},"state":"ratified","strength":"must","valid_from":17,"valid_until":null,"version":1}},"hash":"43b0fe52db63"},{"seq":18,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D5","base":0,"new":null,"chunk":null,"data":{"choice":"Yalnızca genel istemciler","decision_id":"urn:soc:version:D5/1","voter":"worker-a"},"hash":"05dd9efa0fdd"},{"seq":19,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D5","base":0,"new":null,"chunk":null,"data":{"choice":null,"decision_id":"urn:soc:version:D5/1","voter":"worker-b"},"hash":"e962fefbf921"},{"seq":20,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D5","base":0,"new":null,"chunk":null,"data":{"choice":"Yalnızca genel istemciler","decision_id":"urn:soc:version:D5/1","voter":"reviewer"},"hash":"c03dddddeb7f"},{"seq":21,"type":"ChunkBuilt","actor":"orchestrator","role":"orchestrator","commitment":null,"base":null,"new":null,"chunk":"chunk-1","data":{"build_number":1,"decisions":{"D1":"erişim jetonu","D2":"yenileme belirteci","D3":"istemci"},"ledger_version":20,"output_ref":"outputs/chunk-1/build-1.json","use_sites":[{"ref":{"commitment_id":"D1","version":1},"sentence_id":"9999-1-s01"},{"ref":{"commitment_id":"D2","version":1},"sentence_id":"9999-1-s02"},{"ref":{"commitment_id":"D3","version":1},"sentence_id":"9999-1-s01"}],"uses":[{"commitment_id":"D1","version":1},{"commitment_id":"D2","version":1},{"commitment_id":"D3","version":1}]},"hash":"1e0ade01ef08"},{"seq":22,"type":"GateDecision","actor":"reviewer","role":"reviewer","commitment":null,"base":null,"new":null,"chunk":"chunk-1","data":{"accepted":true,"build_number":1,"findings":[],"reason":"gate checks passed"},"hash":"c4a42d43ad26"},{"seq":23,"type":"ChunkBuilt","actor":"orchestrator","role":"orchestrator","commitment":null,"base":null,"new":null,"chunk":"chunk-2","data":{"build_number":1,"decisions":{"D1":"erişim jetonu","D2":"yenileme belirteci","D3":"istemci","D4":"Bağlayıcı yükümlülük","D5":"Yalnızca genel istemciler"},"ledger_version":22,"output_ref":"outputs/chunk-2/build-1.json","use_sites":[{"ref":{"commitment_id":"D1","version":1},"sentence_id":"9999-1-s03"},{"ref":{"commitment_id":"D2","version":1},"sentence_id":"9999-1-s03"},{"ref":{"commitment_id":"D3","version":1},"sentence_id":"9999-1-s03"},{"ref":{"commitment_id":"D4","version":1},"sentence_id":"9999-1-s03"},{"ref":{"commitment_id":"D5","version":1},"sentence_id":"9999-1-s04"}],"uses":[{"commitment_id":"D1","version":1},{"commitment_id":"D2","version":1},{"commitment_id":"D3","version":1},{"commitment_id":"D4","version":1},{"commitment_id":"D5","version":1}]},"hash":"6628463e50e8"},{"seq":24,"type":"GateDecision","actor":"reviewer","role":"reviewer","commitment":null,"base":null,"new":null,"chunk":"chunk-2","data":{"accepted":true,"build_number":1,"findings":[],"reason":"gate checks passed"},"hash":"fae7692b6ba0"},{"seq":25,"type":"ExecutorRebound","actor":"orchestrator","role":"orchestrator","commitment":null,"base":null,"new":null,"chunk":null,"data":{"ledger_version":24,"new_model":"executor-b","old_model":"executor-a"},"hash":"98d76cb4e986"},{"seq":26,"type":"ChunkBuilt","actor":"orchestrator","role":"orchestrator","commitment":null,"base":null,"new":null,"chunk":"chunk-3","data":{"build_number":1,"decisions":{"D1":"erişim jetonu","D2":"yenileme belirteci","D3":"istemci","D4":"Bağlayıcı yükümlülük","D5":"Yalnızca genel istemciler"},"ledger_version":25,"output_ref":"outputs/chunk-3/build-1.json","use_sites":[{"ref":{"commitment_id":"D1","version":1},"sentence_id":"9999-2-s01"},{"ref":{"commitment_id":"D2","version":1},"sentence_id":"9999-2-s01"},{"ref":{"commitment_id":"D3","version":1},"sentence_id":"9999-2-s01"},{"ref":{"commitment_id":"D4","version":1},"sentence_id":"9999-2-s01"},{"ref":{"commitment_id":"D5","version":1},"sentence_id":"9999-2-s02"}],"uses":[{"commitment_id":"D1","version":1},{"commitment_id":"D2","version":1},{"commitment_id":"D3","version":1},{"commitment_id":"D4","version":1},{"commitment_id":"D5","version":1}]},"hash":"2443b5ab9659"},{"seq":27,"type":"GateDecision","actor":"reviewer","role":"reviewer","commitment":null,"base":null,"new":null,"chunk":"chunk-3","data":{"accepted":true,"build_number":1,"findings":[],"reason":"gate checks passed"},"hash":"398ebd772efa"},{"seq":28,"type":"BriefChanged","actor":"client","role":"principal","commitment":null,"base":null,"new":null,"chunk":null,"data":{"after_chunk":null,"clauses":{"B2":"Use erişim belirteci and limit the exception to native public clients."}},"hash":"e517e8ebd188"},{"seq":29,"type":"Revised","actor":"reviewer","role":"reviewer","commitment":"D1","base":1,"new":2,"chunk":null,"data":{"approval":{"approvers":["worker-a","reviewer"],"operation":"toy","triad":["worker-a","worker-b","reviewer"]},"brief_citations":[{"clause_id":"B1","ledger_version":0,"text":"Translate for Turkish protocol implementers and preserve normative force."},{"clause_id":"B2","ledger_version":28,"text":"Use erişim belirteci and limit the exception to native public clients."}],"commitment":{"authority":"triad","creditor":"reader","debtor":"client","id":"D1","operation":"toy","owner":"reviewer","subject":{"key":"access token","kind":"term"}},"commitment_citations":[],"reason":"brief change B2","version":{"commitment_id":"D1","consistency":"QUORUM","evidence":["source:9999-1-s01","brief:B1","brief:B2"],"proposer":"worker-a","ratifier":"reviewer","rationale":"Brief change B2: Use erişim belirteci and limit the exception to native public clients.","rendering":"erişim belirteci","rule":{"kind":"term","parameters":{"key":"access token"}},"scope":["access token"],"sentence_ids":["9999-1-s01","9999-1-s03","9999-2-s01","9999-2-s03"],"source_quote":{"sentence_id":"9999-1-s01","text":"access token"},"state":"amended","strength":"must","valid_from":29,"valid_until":null,"version":2}},"hash":"0321f3d985e1"},{"seq":30,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D1","base":1,"new":null,"chunk":null,"data":{"choice":"erişim belirteci","decision_id":"urn:soc:version:D1/2","voter":"worker-a"},"hash":"32bb80831dae"},{"seq":31,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D1","base":1,"new":null,"chunk":null,"data":{"choice":null,"decision_id":"urn:soc:version:D1/2","voter":"worker-b"},"hash":"6f510264ae57"},{"seq":32,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D1","base":1,"new":null,"chunk":null,"data":{"choice":"erişim belirteci","decision_id":"urn:soc:version:D1/2","voter":"reviewer"},"hash":"7a92f29d23ce"},{"seq":33,"type":"StaleMarked","actor":"reviewer","role":"reviewer","commitment":"D1","base":null,"new":null,"chunk":null,"data":{"chunk_ids":["chunk-1","chunk-2","chunk-3"],"overturned":null,"replaced_by":{"commitment_id":"D1","version":2}},"hash":"ce32978d7431"},{"seq":34,"type":"Tombstoned","actor":"reviewer","role":"reviewer","commitment":"D1","base":1,"new":null,"chunk":null,"data":{"commitment_id":"D1","rendering":"erişim jetonu","scope":["access token"],"sentence_ids":["9999-1-s01","9999-1-s03","9999-2-s01","9999-2-s03"],"version":1},"hash":"7966c95e402f"},{"seq":35,"type":"Revised","actor":"reviewer","role":"reviewer","commitment":"D5","base":1,"new":2,"chunk":null,"data":{"approval":{"approvers":["worker-a","reviewer"],"operation":"toy","triad":["worker-a","worker-b","reviewer"]},"brief_citations":[{"clause_id":"B1","ledger_version":0,"text":"Translate for Turkish protocol implementers and preserve normative force."},{"clause_id":"B2","ledger_version":28,"text":"Use erişim belirteci and limit the exception to native public clients."}],"commitment":{"authority":"triad","creditor":"reader","debtor":"client","id":"D5","operation":"toy","owner":"reviewer","subject":{"key":"public client","kind":"scope"}},"commitment_citations":[],"reason":"brief change B2","version":{"commitment_id":"D5","consistency":"QUORUM","evidence":["source:9999-1-s04","brief:B1","brief:B2"],"proposer":"worker-a","ratifier":"reviewer","rationale":"Brief change B2: Use erişim belirteci and limit the exception to native public clients.","rendering":"Yalnızca yerel genel istemciler","rule":{"kind":"scope","parameters":{"key":"public client"}},"scope":["public client"],"sentence_ids":["9999-1-s04","9999-2-s02","9999-2-s04"],"source_quote":{"sentence_id":"9999-1-s04","text":"public clients"},"state":"amended","strength":"must","valid_from":35,"valid_until":null,"version":2}},"hash":"a15e190324b5"},{"seq":36,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D5","base":1,"new":null,"chunk":null,"data":{"choice":"Yalnızca yerel genel istemciler","decision_id":"urn:soc:version:D5/2","voter":"worker-a"},"hash":"f0e9b006a024"},{"seq":37,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D5","base":1,"new":null,"chunk":null,"data":{"choice":null,"decision_id":"urn:soc:version:D5/2","voter":"worker-b"},"hash":"13736e8bc9c1"},{"seq":38,"type":"VoteCast","actor":"reviewer","role":"reviewer","commitment":"D5","base":1,"new":null,"chunk":null,"data":{"choice":"Yalnızca yerel genel istemciler","decision_id":"urn:soc:version:D5/2","voter":"reviewer"},"hash":"92d22026b2b4"},{"seq":39,"type":"StaleMarked","actor":"reviewer","role":"reviewer","commitment":"D5","base":null,"new":null,"chunk":null,"data":{"chunk_ids":["chunk-2","chunk-3"],"overturned":null,"replaced_by":{"commitment_id":"D5","version":2}},"hash":"6a908cd1c261"},{"seq":40,"type":"Tombstoned","actor":"reviewer","role":"reviewer","commitment":"D5","base":1,"new":null,"chunk":null,"data":{"commitment_id":"D5","rendering":"Yalnızca genel istemciler","scope":["public client"],"sentence_ids":["9999-1-s04","9999-2-s02","9999-2-s04"],"version":1},"hash":"77e129c33b63"},{"seq":41,"type":"StaleDetected","actor":"reviewer","role":"reviewer","commitment":null,"base":null,"new":null,"chunk":"chunk-3","data":{"build_number":1,"path":"review"},"hash":"bb7ce114efe1"},{"seq":42,"type":"ChunkBuilt","actor":"orchestrator","role":"orchestrator","commitment":null,"base":null,"new":null,"chunk":"chunk-3","data":{"build_number":2,"decisions":{"D1":"erişim belirteci","D2":"yenileme belirteci","D3":"istemci","D4":"Bağlayıcı yükümlülük","D5":"Yalnızca yerel genel istemciler"},"ledger_version":41,"output_ref":"outputs/chunk-3/build-2.json","use_sites":[{"ref":{"commitment_id":"D1","version":2},"sentence_id":"9999-2-s01"},{"ref":{"commitment_id":"D2","version":1},"sentence_id":"9999-2-s01"},{"ref":{"commitment_id":"D3","version":1},"sentence_id":"9999-2-s01"},{"ref":{"commitment_id":"D4","version":1},"sentence_id":"9999-2-s01"},{"ref":{"commitment_id":"D5","version":2},"sentence_id":"9999-2-s02"}],"uses":[{"commitment_id":"D1","version":2},{"commitment_id":"D2","version":1},{"commitment_id":"D3","version":1},{"commitment_id":"D4","version":1},{"commitment_id":"D5","version":2}]},"hash":"e7b220ed5826"},{"seq":43,"type":"GateDecision","actor":"reviewer","role":"reviewer","commitment":null,"base":null,"new":null,"chunk":"chunk-3","data":{"accepted":true,"build_number":2,"findings":[],"reason":"gate checks passed"},"hash":"eb90585b80aa"},{"seq":44,"type":"ChunkBuilt","actor":"orchestrator","role":"orchestrator","commitment":null,"base":null,"new":null,"chunk":"chunk-4","data":{"build_number":1,"decisions":{"D1":"erişim belirteci","D2":"yenileme belirteci","D3":"istemci","D4":"Bağlayıcı yükümlülük","D5":"Yalnızca yerel genel istemciler"},"ledger_version":43,"output_ref":"outputs/chunk-4/build-1.json","use_sites":[{"ref":{"commitment_id":"D1","version":2},"sentence_id":"9999-2-s03"},{"ref":{"commitment_id":"D2","version":1},"sentence_id":"9999-2-s03"},{"ref":{"commitment_id":"D3","version":1},"sentence_id":"9999-2-s03"},{"ref":{"commitment_id":"D4","version":1},"sentence_id":"9999-2-s03"},{"ref":{"commitment_id":"D5","version":2},"sentence_id":"9999-2-s04"}],"uses":[{"commitment_id":"D1","version":2},{"commitment_id":"D2","version":1},{"commitment_id":"D3","version":1},{"commitment_id":"D4","version":1},{"commitment_id":"D5","version":2}]},"hash":"5e5265d1b45f"},{"seq":45,"type":"GateDecision","actor":"reviewer","role":"reviewer","commitment":null,"base":null,"new":null,"chunk":"chunk-4","data":{"accepted":true,"build_number":1,"findings":[],"reason":"gate checks passed"},"hash":"c758d44a8def"},{"seq":46,"type":"StaleDetected","actor":"reviewer","role":"reviewer","commitment":null,"base":null,"new":null,"chunk":"chunk-2","data":{"build_number":1,"path":"gate"},"hash":"de288288b584"},{"seq":47,"type":"ChunkBuilt","actor":"orchestrator","role":"orchestrator","commitment":null,"base":null,"new":null,"chunk":"chunk-2","data":{"build_number":2,"decisions":{"D1":"erişim jetonu","D2":"yenileme belirteci","D3":"istemci","D4":"Bağlayıcı yükümlülük","D5":"Yalnızca genel istemciler"},"ledger_version":24,"output_ref":"outputs/chunk-2/build-2.json","use_sites":[{"ref":{"commitment_id":"D1","version":1},"sentence_id":"9999-1-s03"},{"ref":{"commitment_id":"D2","version":1},"sentence_id":"9999-1-s03"},{"ref":{"commitment_id":"D3","version":1},"sentence_id":"9999-1-s03"},{"ref":{"commitment_id":"D4","version":1},"sentence_id":"9999-1-s03"},{"ref":{"commitment_id":"D5","version":1},"sentence_id":"9999-1-s04"}],"uses":[{"commitment_id":"D1","version":1},{"commitment_id":"D2","version":1},{"commitment_id":"D3","version":1},{"commitment_id":"D4","version":1},{"commitment_id":"D5","version":1}]},"hash":"3fa5723f81c7"},{"seq":48,"type":"StaleMarked","actor":"orchestrator","role":"orchestrator","commitment":"D1","base":null,"new":null,"chunk":null,"data":{"chunk_ids":["chunk-2"],"overturned":null,"replaced_by":{"commitment_id":"D1","version":2}},"hash":"6b13163e01e8"},{"seq":49,"type":"StaleMarked","actor":"orchestrator","role":"orchestrator","commitment":"D5","base":null,"new":null,"chunk":null,"data":{"chunk_ids":["chunk-2"],"overturned":null,"replaced_by":{"commitment_id":"D5","version":2}},"hash":"26609c29f721"},{"seq":50,"type":"StaleDetected","actor":"reviewer","role":"reviewer","commitment":null,"base":null,"new":null,"chunk":"chunk-2","data":{"build_number":2,"path":"gate"},"hash":"01e5037e6646"},{"seq":51,"type":"GateDecision","actor":"reviewer","role":"reviewer","commitment":null,"base":null,"new":null,"chunk":"chunk-2","data":{"accepted":false,"build_number":2,"findings":[{"commitment_id":null,"detail":"chunk uses a superseded ruling in the affected scope","end":null,"outcome":"block","rule":"impact","sentence_id":null,"start":null,"strength":null}],"reason":"chunk uses a superseded ruling in the affected scope"},"hash":"005cb8174aab"},{"seq":52,"type":"ChunkBuilt","actor":"orchestrator","role":"orchestrator","commitment":null,"base":null,"new":null,"chunk":"chunk-2","data":{"build_number":3,"decisions":{"D1":"erişim belirteci","D2":"yenileme belirteci","D3":"istemci","D4":"Bağlayıcı yükümlülük","D5":"Yalnızca yerel genel istemciler"},"ledger_version":51,"output_ref":"outputs/chunk-2/build-3.json","use_sites":[{"ref":{"commitment_id":"D1","version":2},"sentence_id":"9999-1-s03"},{"ref":{"commitment_id":"D2","version":1},"sentence_id":"9999-1-s03"},{"ref":{"commitment_id":"D3","version":1},"sentence_id":"9999-1-s03"},{"ref":{"commitment_id":"D4","version":1},"sentence_id":"9999-1-s03"},{"ref":{"commitment_id":"D5","version":2},"sentence_id":"9999-1-s04"}],"uses":[{"commitment_id":"D1","version":2},{"commitment_id":"D2","version":1},{"commitment_id":"D3","version":1},{"commitment_id":"D4","version":1},{"commitment_id":"D5","version":2}]},"hash":"f89b0e3e99d2"},{"seq":53,"type":"GateDecision","actor":"reviewer","role":"reviewer","commitment":null,"base":null,"new":null,"chunk":"chunk-2","data":{"accepted":true,"build_number":3,"findings":[],"reason":"gate checks passed"},"hash":"d7bc1b1744c0"},{"seq":54,"type":"StaleDetected","actor":"orchestrator","role":"orchestrator","commitment":null,"base":null,"new":null,"chunk":"chunk-1","data":{"build_number":1,"path":"final_sweep"},"hash":"e26e657bb051"},{"seq":55,"type":"ChunkBuilt","actor":"orchestrator","role":"orchestrator","commitment":null,"base":null,"new":null,"chunk":"chunk-1","data":{"build_number":2,"decisions":{"D1":"erişim belirteci","D2":"yenileme belirteci","D3":"istemci"},"ledger_version":54,"output_ref":"outputs/chunk-1/build-2.json","use_sites":[{"ref":{"commitment_id":"D1","version":2},"sentence_id":"9999-1-s01"},{"ref":{"commitment_id":"D2","version":1},"sentence_id":"9999-1-s02"},{"ref":{"commitment_id":"D3","version":1},"sentence_id":"9999-1-s01"}],"uses":[{"commitment_id":"D1","version":2},{"commitment_id":"D2","version":1},{"commitment_id":"D3","version":1}]},"hash":"b89ec821225a"},{"seq":56,"type":"GateDecision","actor":"reviewer","role":"reviewer","commitment":null,"base":null,"new":null,"chunk":"chunk-1","data":{"accepted":true,"build_number":2,"findings":[],"reason":"gate checks passed"},"hash":"21bbfeb96012"}]}</script>
+<script>
+const D = JSON.parse(document.getElementById('data').textContent);
+const E = D.events;
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const chunkIds = D.chunks.map(c => c.id);
+const chunkLabel = id => 'Chunk ' + (chunkIds.indexOf(id) + 1);
+
+const CAT = {
+  rulings: { label: 'Rulings', color: 'var(--fg)', types: ['Ratified','Revised','Provisional','Superseded','Revoked','Tombstoned','ConflictRaised'] },
+  votes: { label: 'Votes', color: 'var(--vote)', types: ['VoteCast'] },
+  builds: { label: 'Builds', color: 'var(--ok)', types: ['ChunkBuilt'] },
+  gate: { label: 'Gate', color: 'var(--muted)', types: ['GateDecision'] },
+  repair: { label: 'Stale and repair', color: 'var(--warn)', types: ['StaleMarked','StaleDetected'] },
+  context: { label: 'Executor and brief', color: 'var(--exec)', types: ['ExecutorRebound','BriefChanged'] },
+};
+const catOf = t => Object.keys(CAT).find(k => CAT[k].types.includes(t)) || 'context';
+
+/* ---- model ---- */
+const versions = {};   // did -> [{v, seq, type, ver, approval, reason, briefs, ballots}]
+const tombstones = [];
+const builds = Object.fromEntries(chunkIds.map(c => [c, []]));
+const lastBuild = c => builds[c][builds[c].length - 1];
+let execEvent = null, briefEvent = null;
+
+for (const e of E) {
+  const d = e.data;
+  if (e.new != null) {
+    (versions[e.commitment] ||= []).push({ v: e.new, seq: e.seq, type: e.type, ver: d.version, approval: d.approval, reason: d.reason, briefs: d.brief_citations || [], ballots: [] });
+  } else if (e.type === 'VoteCast') {
+    const m = /version:(.+)\/(\d+)$/.exec(d.decision_id || '');
+    const target = m && (versions[m[1]] || []).find(x => x.v === +m[2]);
+    if (target) target.ballots.push(d);
+  } else if (e.type === 'Tombstoned') {
+    tombstones.push({ seq: e.seq, ...d });
+  } else if (e.type === 'ChunkBuilt') {
+    const uses = Object.fromEntries(d.uses.map(u => [u.commitment_id, u.version]));
+    builds[e.chunk].push({ n: d.build_number, seq: e.seq, snap: d.ledger_version, uses, sites: d.use_sites || [], decisions: d.decisions, out: d.output_ref, gate: null, stale: [], detected: [] });
+  } else if (e.type === 'GateDecision') {
+    const b = builds[e.chunk].find(x => x.n === d.build_number);
+    if (b) b.gate = { seq: e.seq, accepted: d.accepted, reason: d.reason };
+  } else if (e.type === 'StaleMarked') {
+    for (const c of d.chunk_ids) { const b = lastBuild(c); if (b) b.stale.push({ seq: e.seq, did: e.commitment, by: d.replaced_by, overturned: d.overturned }); }
+  } else if (e.type === 'StaleDetected') {
+    const b = builds[e.chunk].find(x => x.n === d.build_number);
+    if (b) b.detected.push({ seq: e.seq, path: d.path });
+  } else if (e.type === 'ExecutorRebound') { execEvent = e; }
+  else if (e.type === 'BriefChanged') { briefEvent = e; }
+}
+
+function useStatus(b, did) {
+  const marked = b.stale.some(s => s.did === did);
+  if (marked && b.gate && !b.gate.accepted) return 'blocked';
+  return marked ? 'stale' : 'current';
+}
+const rendering = (did, v) => (versions[did] || []).find(x => x.v === v)?.ver.rendering;
+const sentencesFor = (did, c) => {
+  const key = D.decisions.find(x => x.id === did).key;
+  return D.chunks.find(x => x.id === c).sentences.filter(s => s.keys.includes(key));
+};
+
+/* ---- header ---- */
+document.getElementById('note').textContent = D.note + ' Run: ' + D.run + '.';
+const revisions = E.filter(e => e.new != null && e.base > 0).length;
+const staleMarks = builds && Object.values(builds).flat().filter(b => b.stale.length).length;
+const blocked = E.filter(e => e.type === 'GateDecision' && !e.data.accepted).length;
+const stats = [
+  [D.decisions.length, 'decisions'], [chunkIds.length, 'chunks'], [E.length, 'ledger events'],
+  [revisions, 'revisions'], [staleMarks, 'builds flagged stale'], [blocked, 'gate blocks'],
+  [D.final_stale.length, 'stale at end'],
+];
+document.getElementById('stats').innerHTML = stats.map(([n, l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join('');
+
+/* ---- matrix ---- */
+const M = document.getElementById('matrix');
+M.style.setProperty('--n', chunkIds.length);
+const edgeClass = i => (i === D.executor_change_after ? ' exec-edge' : '') + (i === D.brief_change_after ? ' brief-edge' : '');
+const edgeLabel = i => (i === D.executor_change_after ? `<span class="edge-label">Executor ${esc(execEvent?.data.old_model.replace('executor-','').toUpperCase())} → ${esc(execEvent?.data.new_model.replace('executor-','').toUpperCase())}</span>` : '')
+  + (i === D.brief_change_after ? '<span class="edge-label">Brief change B2</span>' : '');
+let html = `<div class="mx head">Decision</div>`;
+chunkIds.forEach((c, i) => {
+  html += `<div class="mx head col${edgeClass(i)}" data-chunk="${c}" tabindex="0" role="button" aria-label="${chunkLabel(c)} details">${edgeLabel(i)}<div class="chunk-name">${chunkLabel(c)}</div><div>${builds[c].length} build${builds[c].length === 1 ? '' : 's'}</div></div>`;
+});
+html += `<div class="mx rowlab buildrow" style="cursor:default"><span class="kind">Gate result</span><span class="vals">per build</span></div>`;
+chunkIds.forEach((c, i) => {
+  html += `<div class="mx cell buildrow${edgeClass(i)}" data-chunk="${c}" tabindex="0" role="button">` + builds[c].map((b, k) => {
+    const ok = b.gate?.accepted;
+    const cls = ok ? 'current' : 'blocked';
+    const fin = k === builds[c].length - 1 ? ' final' : '';
+    return (k ? '<span class="arrow">→</span>' : '') + `<span class="chip ${cls}${fin}">b${b.n} ${ok ? 'pass' : 'block'}</span>`;
+  }).join('') + `</div>`;
+});
+D.decisions.forEach((dec, r) => {
+  const vs = versions[dec.id] || [];
+  const last = r === D.decisions.length - 1 ? ' last' : '';
+  html += `<div class="mx rowlab${last}" data-did="${dec.id}" tabindex="0" role="button"><span><span class="id">${dec.id}</span> <span class="kind">${esc(dec.kind)}</span></span><span class="vals"><span class="mono">${esc(dec.key)}</span></span><span class="vals">${vs.map(v => esc(v.ver.rendering)).join(' → ')}</span></div>`;
+  chunkIds.forEach((c, i) => {
+    const used = builds[c].filter(b => b.uses[dec.id] != null);
+    const inner = used.length ? used.map((b, k) => {
+      const st = useStatus(b, dec.id);
+      const fin = k === used.length - 1 ? ' final' : '';
+      return (k ? '<span class="arrow">→</span>' : '') + `<span class="chip ${st}${fin}" title="Build ${b.n} used ${dec.id} v${b.uses[dec.id]}: ${st}">b${b.n}·v${b.uses[dec.id]}</span>`;
+    }).join('') : '<span class="na">not used</span>';
+    html += `<div class="mx cell${edgeClass(i)}${last}" data-did="${dec.id}" data-chunk="${c}" tabindex="0" role="button">${inner}</div>`;
+  });
+});
+M.innerHTML = html;
+
+/* ---- detail ---- */
+const detail = document.getElementById('detail');
+function showRun() {
+  detail.innerHTML = `<p class="eyebrow">Run</p><h2>${esc(D.run)}</h2>
+    <p class="sent">Five decisions approved in chunk 1. The executor changes after chunk ${D.executor_change_after}; the brief changes after chunk ${D.brief_change_after} and revises D1 and D5.</p>
+    <p class="sent">Select a decision, a chunk or a cell to see versions, votes, use sites and gate results. The event log narrows to match.</p>
+    <dl><dt>Final stale</dt><dd>${D.final_stale.length ? esc(D.final_stale.join(', ')) : 'none'}</dd>
+    <dt>Tombstones</dt><dd>${tombstones.map(t => `${esc(t.rendering)} (${t.commitment_id} v${t.version})`).join('<br>') || 'none'}</dd></dl>`;
+}
+function ballotsHtml(v) {
+  return `<div class="ballots">${v.ballots.map(b => {
+    const cls = b.choice == null ? 'abstain' : (b.choice !== v.ver.rendering ? 'dissent' : '');
+    const what = b.choice == null ? 'abstained' : (b.choice === v.ver.rendering ? 'for' : 'for “' + esc(b.choice) + '”');
+    return `<span class="ballot ${cls}">${esc(b.voter)}: ${what}</span>`;
+  }).join('') || '<span class="muted">no ballots</span>'}</div>`;
+}
+function showDecision(did) {
+  const dec = D.decisions.find(x => x.id === did);
+  const vs = versions[did] || [];
+  detail.innerHTML = `<p class="eyebrow">Decision · ${esc(dec.kind)}</p><h2>${did} · <span class="mono" style="font-size:16px">${esc(dec.key)}</span></h2>` +
+    vs.map(v => `<div class="vcard"><h3>v${v.v} · ${esc(v.ver.rendering)}</h3>
+      <dl><dt>Event</dt><dd>${v.type} at seq ${v.seq}</dd><dt>State</dt><dd>${esc(v.ver.state)} · ${esc(v.ver.consistency)} · ${esc(v.ver.strength)}</dd>
+      <dt>Valid</dt><dd>seq ${v.ver.valid_from}${v.ver.valid_until ? '–' + v.ver.valid_until : ' onward'}</dd>
+      <dt>Evidence</dt><dd class="mono" style="font-size:12px">${v.ver.evidence.map(esc).join('<br>')}</dd>
+      <dt>Reason</dt><dd>${esc(v.ver.rationale)}</dd></dl>${ballotsHtml(v)}</div>`).join('') +
+    (tombstones.filter(t => t.commitment_id === did).map(t => `<div class="vcard"><h3>Tombstone at seq ${t.seq}</h3><p class="sent">“${esc(t.rendering)}” may no longer be used for ${esc(t.scope.join(', '))} at ${t.sentence_ids.length} sites.</p></div>`).join(''));
+}
+function showChunk(c) {
+  const ch = D.chunks.find(x => x.id === c);
+  detail.innerHTML = `<p class="eyebrow">${esc(c)}</p><h2>${chunkLabel(c)}</h2>` +
+    ch.sentences.map(s => `<p class="sent"><span class="mono muted">${esc(s.id)}</span> ${esc(s.text)}</p>`).join('') +
+    builds[c].map(b => `<div class="vcard"><h3>Build ${b.n} <span class="tag">${b.gate?.accepted ? 'gate pass' : 'gate block'}</span></h3>
+      <dl><dt>Built at</dt><dd>seq ${b.seq}, read ledger at seq ${b.snap}</dd>
+      <dt>Used</dt><dd>${Object.entries(b.uses).map(([d, v]) => `${d} v${v}`).join(', ')}</dd>
+      <dt>Gate</dt><dd>${esc(b.gate?.reason || 'not checked')}</dd>
+      ${b.stale.length ? `<dt>Flagged</dt><dd>${b.stale.map(s => `seq ${s.seq}: ${s.did} replaced by v${s.by?.version}`).join('<br>')}</dd>` : ''}
+      ${b.detected.length ? `<dt>Detected</dt><dd>${b.detected.map(x => `seq ${x.seq} at ${esc(x.path.replace('_', ' '))}`).join('<br>')}</dd>` : ''}
+      <dt>Output</dt><dd class="mono" style="font-size:12px">${esc(b.out)}</dd></dl></div>`).join('');
+}
+function showCell(did, c) {
+  const sents = sentencesFor(did, c);
+  const used = builds[c].filter(b => b.uses[did] != null);
+  detail.innerHTML = `<p class="eyebrow">${did} in ${chunkLabel(c)}</p><h2>${esc(D.decisions.find(x => x.id === did).key)}</h2>` +
+    (sents.length ? `<div class="vcard"><h3>Use sites</h3>${sents.map(s => `<p class="sent"><span class="mono muted">${esc(s.id)}</span> ${esc(s.text)}</p>`).join('')}</div>` : '<p class="sent">This decision does not apply to any sentence in this chunk.</p>') +
+    used.map(b => {
+      const st = useStatus(b, did);
+      const stale = b.stale.find(s => s.did === did);
+      return `<div class="vcard"><h3>Build ${b.n}: v${b.uses[did]} <span class="chip ${st}">${st}</span></h3>
+        <p class="sent">Rendered “${esc(b.decisions[did] ?? rendering(did, b.uses[did]))}”, reading the ledger at seq ${b.snap}.</p>
+        ${stale ? `<p class="sent">Flagged at seq ${stale.seq}: replaced by v${stale.by?.version} “${esc(rendering(did, stale.by?.version))}”.</p>` : ''}
+        ${b.gate && !b.gate.accepted ? `<p class="sent">Gate at seq ${b.gate.seq} blocked this build: ${esc(b.gate.reason)}.</p>` : ''}</div>`;
+    }).join('');
+}
+
+/* ---- selection ---- */
+let sel = null;
+function select(next) {
+  sel = next;
+  M.querySelectorAll('.mx').forEach(el => {
+    const on = sel && ((sel.did ? el.dataset.did === sel.did : !el.dataset.did) && (sel.chunk ? el.dataset.chunk === sel.chunk : !el.dataset.chunk || sel.did) && (el.dataset.did || el.dataset.chunk));
+    el.classList.toggle('sel', !!on && !(sel.did && !sel.chunk && el.dataset.chunk));
+  });
+  if (!sel) showRun(); else if (sel.did && sel.chunk) showCell(sel.did, sel.chunk); else if (sel.did) showDecision(sel.did); else showChunk(sel.chunk);
+  renderLog();
+}
+M.addEventListener('click', ev => {
+  const el = ev.target.closest('.mx[data-did], .mx[data-chunk]');
+  if (!el) return;
+  const next = { did: el.dataset.did || null, chunk: el.dataset.chunk || null };
+  select(sel && sel.did === next.did && sel.chunk === next.chunk ? null : next);
+});
+M.addEventListener('keydown', ev => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('.mx[role=button]')) { ev.preventDefault(); ev.target.click(); } });
+
+/* ---- strip ---- */
+(function drawStrip() {
+  const svg = document.getElementById('strip');
+  const N = E.length, x0 = 20, x1 = 980, x = s => x0 + (s - 1) * (x1 - x0) / Math.max(1, N - 1);
+  let out = `<line x1="${x0}" y1="70" x2="${x1}" y2="70" stroke="var(--line)" stroke-width="2"/>`;
+  const marks = [];
+  if (execEvent) marks.push([execEvent.seq, 'Executor change', 'var(--exec)']);
+  if (briefEvent) marks.push([briefEvent.seq, 'Brief change', 'var(--accent)']);
+  marks.forEach(([s, label, col], i) => {
+    out += `<line x1="${x(s)}" y1="22" x2="${x(s)}" y2="96" stroke="${col}" stroke-width="1.5" stroke-dasharray="${i ? '' : '4 3'}"/>`;
+    out += `<text x="${x(s) + (i ? 6 : -6)}" y="18" fill="${col}" font-family="JetBrains Mono, monospace" font-size="12" font-weight="600" text-anchor="${i ? 'start' : 'end'}">${label}</text>`;
+  });
+  for (const e of E) {
+    const k = catOf(e.type), tall = k === 'votes' ? 8 : 16;
+    const fill = e.type === 'GateDecision' && !e.data.accepted ? 'var(--bad)' : CAT[k].color;
+    out += `<rect x="${x(e.seq) - 3}" y="${70 - tall}" width="6" height="${tall * 2}" rx="2" fill="${fill}"><title>${e.seq} · ${e.type}${e.commitment ? ' · ' + e.commitment : ''}${e.chunk ? ' · ' + e.chunk : ''}</title></rect>`;
+  }
+  [1, Math.round(N / 2), N].forEach(s => { out += `<text x="${x(s)}" y="114" fill="var(--muted)" font-family="JetBrains Mono, monospace" font-size="11" text-anchor="middle">${s}</text>`; });
+  svg.innerHTML = out;
+})();
+
+/* ---- log ---- */
+const on = Object.fromEntries(Object.keys(CAT).map(k => [k, k !== 'votes']));
+const F = document.getElementById('filters');
+function drawFilters() {
+  F.innerHTML = Object.entries(CAT).map(([k, c]) => {
+    const n = E.filter(e => catOf(e.type) === k).length;
+    return `<button class="filter" data-k="${k}" aria-pressed="${on[k]}"><span class="dot" style="background:${c.color}"></span>${c.label} ${n}</button>`;
+  }).join('');
+}
+F.addEventListener('click', ev => { const b = ev.target.closest('.filter'); if (!b) return; on[b.dataset.k] = !on[b.dataset.k]; drawFilters(); renderLog(); });
+function summary(e) {
+  const d = e.data;
+  switch (e.type) {
+    case 'Ratified': case 'Revised': return `${e.commitment} v${e.new}: “${esc(d.version.rendering)}”, ${esc(d.version.consistency)}, approved by ${esc(d.approval?.approvers.join(', '))}`;
+    case 'VoteCast': return `${esc(d.voter)} on ${esc(d.decision_id.split(':').pop())}: ${d.choice == null ? 'abstained' : '“' + esc(d.choice) + '”'}`;
+    case 'ChunkBuilt': return `${chunkLabel(e.chunk)} build ${d.build_number}, read seq ${d.ledger_version}, used ${d.uses.map(u => u.commitment_id + ' v' + u.version).join(', ')}`;
+    case 'GateDecision': return `${chunkLabel(e.chunk)} build ${d.build_number}: ${d.accepted ? 'passed' : 'blocked'}${d.accepted ? '' : ' (' + esc(d.reason) + ')'}`;
+    case 'StaleMarked': return `${d.chunk_ids.map(chunkLabel).join(', ')} flagged: ${e.commitment} now v${d.replaced_by?.version ?? '?'}`;
+    case 'StaleDetected': return `${chunkLabel(e.chunk)} build ${d.build_number} picked up for repair at ${esc(d.path.replace('_', ' '))}`;
+    case 'Tombstoned': return `“${esc(d.rendering)}” retired for ${esc(d.scope.join(', '))} (${d.commitment_id} v${d.version})`;
+    case 'ExecutorRebound': return `Executor ${esc(d.old_model)} handed over to ${esc(d.new_model)}`;
+    case 'BriefChanged': return Object.entries(d.clauses).map(([k, v]) => `${esc(k)}: ${esc(v)}`).join('; ');
+    default: return '';
+  }
+}
+function related(e) {
+  if (!sel) return true;
+  const voteFor = e.type === 'VoteCast' ? (/version:(.+)\//.exec(e.data.decision_id) || [])[1] : null;
+  const usesDid = e.type === 'ChunkBuilt' && sel.did ? e.data.uses.some(u => u.commitment_id === sel.did) : true;
+  const didOk = !sel.did || e.commitment === sel.did || voteFor === sel.did || (e.chunk && usesDid && sel.chunk);
+  const chunkOk = !sel.chunk || e.chunk === sel.chunk || (e.type === 'StaleMarked' && e.data.chunk_ids.includes(sel.chunk)) || (!e.chunk && !!sel.did && e.type !== 'StaleMarked');
+  if (sel.did && sel.chunk) return (e.chunk === sel.chunk && usesDid) || (e.type === 'StaleMarked' && e.commitment === sel.did && e.data.chunk_ids.includes(sel.chunk)) || (e.new != null && e.commitment === sel.did);
+  return didOk && chunkOk;
+}
+function renderLog() {
+  const rows = E.filter(e => on[catOf(e.type)] && related(e));
+  document.getElementById('log').innerHTML = rows.map(e => `<tr><td class="seq">${e.seq}</td><td class="type"><span class="tpill"><span class="dot" style="background:${e.type === 'GateDecision' && !e.data.accepted ? 'var(--bad)' : CAT[catOf(e.type)].color}"></span>${e.type}</span></td><td>${esc(e.actor)}</td><td>${summary(e)}</td><td class="hash">${esc(e.hash)}</td></tr>`).join('') || `<tr><td colspan="5" class="muted">No events match. Turn on more filters above.</td></tr>`;
+  const scope = document.getElementById('scope');
+  scope.hidden = !sel;
+  if (sel) scope.innerHTML = `Showing events for ${[sel.did, sel.chunk && chunkLabel(sel.chunk)].filter(Boolean).join(' in ')}. <button type="button" id="clear">Show all</button>`;
+  const clear = document.getElementById('clear'); if (clear) clear.onclick = () => select(null);
+}
+drawFilters();
+select(null);
+</script>
