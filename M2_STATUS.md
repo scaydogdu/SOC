@@ -267,3 +267,85 @@ providers: 155/166 branches (93.4%)
 checker: 66/68 branches (97.1%)
 baseline: 34/34 branches (100.0%)
 ```
+
+## Live preparation on 23 November 2026
+
+The four proposed YAML files under `config/m2-live/` use the toy episode, GPT-6.1 Sol with GPT-6 Luna as successor, Claude Sonnet 5.5 as peer, and Gemini 3.8 Flash as reviewer. One chunk runs at a time. The proposed conditions are cross-examination at low and high effort, open discussion at low effort, and principal-only at low effort. The two Form modes use provisional low effort pending Can's choice. Form cross-examination can reuse the Keep run at that shared effort.
+
+A draft question-to-answer key is at `~/Library/Application Support/SOC/principal/toy.yaml`, outside the repository, with permissions 0600. It contains answers for the known toy terms and normative questions. Those answers still need Can's wording approval. The preparation tests insert a separate unasked preference and verify that its text, question and private key path never reach any worker prompt.
+
+### Scripted cost estimate
+
+Run `uv run --locked --offline python -m scripts.prepare_m2_live --principal-key "$HOME/Library/Application Support/SOC/principal/toy.yaml" --out /tmp/m2-live-estimate.json` to reproduce the estimate with temporary campaign databases.
+
+| Proposed condition | Calls | Assumed input tokens | Assumed output tokens | Expected USD | Full request reservations USD | Retry envelope USD | Peak concurrent reservation USD |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Cross-examination high | 19 | 18,539 | 1,358 | 0.0367391 | 0.7649737 | 3.8356909 | 0.075544 |
+| Cross-examination low | 19 | 18,535 | 1,358 | 0.0367348 | 0.7649381 | 3.8355129 | 0.075540 |
+| Open discussion low | 19 | 18,185 | 1,338 | 0.0368033 | 0.7963571 | 3.9933679 | 0.075540 |
+| Principal-only low | 13 | 16,031 | 1,284 | 0.0308769 | 0.5087565 | 2.5508049 | 0.075540 |
+| Total | 70 | 71,290 | 5,338 | 0.1411541 | 2.8350254 | 14.2153766 | 0.075544 |
+
+Usage is a planning assumption of one token per four UTF-8 bytes, rounded up separately per request and response. Reservations use the full request byte length plus the 4,096-token output allowance. The retry envelope includes two transient retries, one schema repair and one refusal retry on every scripted call, with an extra user-message allowance after a schema failure. These amounts cover this scripted decision path. Live classifications, answers and repairs can produce additional calls and different reasoning usage.
+
+### Current campaign and required decisions
+
+The read-only status check still reports a USD 40 cap, USD 0.1193114 settled and USD 34.9568 held in reservations 37, 38, 39, 40 and 43. Available headroom is USD 4.9238886. Operator reconciliation against Google billing is pending. The recorded probe report remains 14 of 18 effort combinations. The re-probe follows the reconciliation step in the live brief. No new provider calls were made for this preparation.
+
+Before launch, Can confirms the four-condition list, the Form effort, the principal wording, and the budget after reviewing the estimates. The live handoff explicitly reserves those decisions for Can.
+
+### Prepared launch and replay commands
+
+After confirmation and passing effort probes, run from the repository with a fresh `m2-` revision directory. The explicit code revision overrides the preparation baseline in each condition YAML.
+
+```sh
+soc_campaign="$HOME/Library/Application Support/SOC/campaigns/m1-2026-11-18"
+soc_principal="$HOME/Library/Application Support/SOC/principal/toy.yaml"
+soc_revision=$(git rev-parse HEAD)
+
+soc_run_condition() {
+  soc_case="$1"
+  soc_record="$soc_campaign/m2-$soc_revision/$soc_case"
+  soc_replay="$soc_campaign/m2-$soc_revision/$soc_case-replay"
+  uv run --locked python -m soc.orchestrator.live soc \
+    --output "$soc_campaign" --episode data/episodes/toy \
+    --condition "config/m2-live/$soc_case.yaml" --principal-key "$soc_principal" \
+    --code-commit "$soc_revision" --run-dir "$soc_record" &&
+  uv run --locked --offline python -m soc.orchestrator.live soc-replay \
+    --output "$soc_campaign" --episode data/episodes/toy \
+    --condition "config/m2-live/$soc_case.yaml" --principal-key "$soc_principal" \
+    --code-commit "$soc_revision" --run-dir "$soc_replay" &&
+  cmp "$soc_record/final_chunks.jsonl" "$soc_replay/final_chunks.jsonl" &&
+  cmp "$soc_record/final_findings.jsonl" "$soc_replay/final_findings.jsonl" &&
+  uv run --locked --offline python -m analysis.timeline "$soc_record" data/episodes/toy \
+    --out "docs/examples/m2-$soc_case.html" --label "Live toy $soc_case"
+}
+
+soc_run_condition cross-examination-low &&
+soc_run_condition cross-examination-high &&
+soc_run_condition open-discussion-low &&
+soc_run_condition principal-only-low
+```
+
+### Schema and preparation checks
+
+Added a valid graph covering authority, decision subject and a brief citation, plus invalid fixtures for `DecisionSubjectShape`, `BriefCitationShape`, and the authority-class constraint in `CommitmentShape`. Each invalid fixture fails only its named shape.
+
+`test_proposed_live_condition_completes_script_and_keeps_private_key_out_of_prompts` covers all four conditions. `test_live_condition_matrix_has_three_modes_and_both_keep_efforts` verifies the proposed matrix. `test_live_condition_uses_explicit_code_revision_for_record_and_replay` verifies the launch override.
+
+`./scripts/check` exited successfully.
+
+```text
+All checks passed!
+105 files already formatted
+Success: no issues found in 54 source files
+Contracts: 1 kept, 0 broken.
+290 passed, 3 deselected in 43.93s
+timeline: 35/36 branches (97.2%)
+ledger: 352/382 branches (92.1%)
+episode: 52/54 branches (96.3%)
+segmenter: 67/68 branches (98.5%)
+providers: 155/166 branches (93.4%)
+checker: 66/68 branches (97.1%)
+baseline: 34/34 branches (100.0%)
+```

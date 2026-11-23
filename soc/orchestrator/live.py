@@ -547,6 +547,14 @@ async def _main(args: argparse.Namespace) -> int:
         condition = SOCCondition.model_validate(
             yaml.safe_load(args.condition.read_text(encoding="utf-8"))
         )
+        if args.code_commit is not None:
+            condition = condition.model_copy(
+                update={
+                    "run": condition.run.model_copy(
+                        update={"code_commit": args.code_commit}
+                    )
+                }
+            )
         agreement = AgreementRules.model_validate(
             yaml.safe_load(args.agreement.read_text(encoding="utf-8"))
         )

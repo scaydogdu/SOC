@@ -21,4 +21,6 @@
 - Reconcile the five open Gemini reservations in the existing campaign against the Google billing console. The operator records confirmed amounts before the roster re-probe.
 - Confirm the live M2 condition list and the shared Form effort after Pilot A. Approve the run budget once the scripted cost estimate is available.
 
+- Live M2 preparation now has four proposed condition files and a scripted estimate in `M2_STATUS.md`. Confirm the two Keep effort levels, the provisional low effort for the two other Form modes, and the budget after reviewing the estimate. The external toy principal key contains draft terminology and normative answers and awaits wording approval.
+
 The five M2 design decisions approved on 11 November 2026 are recorded in [Section B of the second M0 review](REVIEW_M0_2.md#b-design-questions--decided-by-can-on-11-november-2026).

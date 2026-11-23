@@ -1,0 +1,124 @@
+[
+  {
+    "@id": "urn:soc:commitment:D1",
+    "@type": "Commitment",
+    "operation": "urn:soc:operation:toy",
+    "owner": "urn:soc:agent:owner",
+    "debtor": "urn:soc:agent:client",
+    "creditor": "urn:soc:agent:reader",
+    "authorityClass": "principal",
+    "decisionKind": "term",
+    "decisionKey": "access token"
+  },
+  {
+    "@id": "urn:soc:version:D1/1",
+    "@type": "CommitmentVersion",
+    "commitment": "urn:soc:commitment:D1",
+    "version": 1,
+    "scope": [
+      "access token"
+    ],
+    "rendering": "erişim jetonu",
+    "antecedent": [
+      "access token"
+    ],
+    "consequent": "erişim jetonu",
+    "rationale": "Client terminology",
+    "evidence": [
+      "source:9999-1-s01",
+      "brief:B1"
+    ],
+    "proposer": "urn:soc:agent:translator",
+    "ratifier": "urn:soc:agent:owner",
+    "consistency": "ONE",
+    "state": "ratified",
+    "validFrom": 1,
+    "sourceQuote": {
+      "sentenceId": "9999-1-s01",
+      "text": "access token"
+    },
+    "checkableRule": {
+      "kind": "term",
+      "parameters": "{\"term\": \"access token\"}"
+    },
+    "strength": "must",
+    "briefCitation": [
+      {
+        "@id": "urn:soc:brief:B1"
+      }
+    ]
+  },
+  {
+    "@id": "urn:soc:version:D1/2",
+    "@type": "CommitmentVersion",
+    "commitment": "urn:soc:commitment:D1",
+    "version": 2,
+    "scope": [
+      "access token"
+    ],
+    "rendering": "erişim jetonu",
+    "antecedent": [
+      "access token"
+    ],
+    "consequent": "erişim jetonu",
+    "rationale": "Client terminology",
+    "evidence": [
+      "source:9999-1-s01",
+      "brief:B1"
+    ],
+    "proposer": "urn:soc:agent:translator",
+    "ratifier": "urn:soc:agent:owner",
+    "consistency": "ONE",
+    "state": "ratified",
+    "validFrom": 2,
+    "sourceQuote": {
+      "sentenceId": "9999-1-s01",
+      "text": "access token"
+    },
+    "checkableRule": {
+      "kind": "term",
+      "parameters": "{\"term\": \"access token\"}"
+    },
+    "strength": "should"
+  },
+  {
+    "@id": "urn:soc:version:D1/3",
+    "@type": "CommitmentVersion",
+    "commitment": "urn:soc:commitment:D1",
+    "version": 3,
+    "scope": [
+      "access token"
+    ],
+    "rendering": "erişim jetonu",
+    "antecedent": [
+      "access token"
+    ],
+    "consequent": "erişim jetonu",
+    "rationale": "Client terminology",
+    "evidence": [
+      "source:9999-1-s01",
+      "brief:B1"
+    ],
+    "proposer": "urn:soc:agent:translator",
+    "ratifier": "urn:soc:agent:owner",
+    "consistency": "ONE",
+    "state": "ratified",
+    "validFrom": 3,
+    "sourceQuote": {
+      "sentenceId": "9999-1-s01",
+      "text": "access token"
+    },
+    "checkableRule": {
+      "kind": "term",
+      "parameters": "{\"term\": \"access token\"}"
+    },
+    "strength": "may"
+  },
+  {
+    "@id": "urn:soc:brief:B1",
+    "@type": "BriefCitation",
+    "clauseId": "B1",
+    "clauseText": "Use approved terms.",
+    "validFrom": 0
+  }
+]

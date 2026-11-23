@@ -1,0 +1,17 @@
+# Proposed launch configuration. Form low effort awaits confirmation.
+run:
+  run_id: m2-live-toy-principal-only-low
+  condition: soc-principal-only-low
+  episode_id: toy
+  replicate: 0
+  initial_model: gpt-6.1-sol
+  successor_model: gpt-6-luna
+  effort: low
+  code_commit: a98a4be
+  resolution: principal_only
+  max_in_flight: 1
+  chunk_id_base: 1
+team:
+  peer_model: claude-sonnet-5-5
+  reviewer_model: gemini-3.8-flash
+memory: soc

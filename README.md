@@ -185,6 +185,20 @@ uv run --locked --offline python -m eval.brief_gap /path/to/soc-run \
   --arm soc --sentence-id 9700-4.2-s03
 ```
 
+## Live M2 preparation
+
+Proposed conditions are under `config/m2-live/`. They cover cross-examination at low and high effort, plus open discussion and principal-only at provisional low effort. The shared Form effort awaits confirmation.
+
+Exercise those conditions with scripted providers and generate a cost estimate.
+
+```bash
+uv run --locked --offline python -m scripts.prepare_m2_live \
+  --principal-key "$HOME/Library/Application Support/SOC/principal/toy.yaml" \
+  --out /tmp/m2-live-estimate.json
+```
+
+The report lists actual scripted call counts, assumed input/output usage, full request reservations, a retry allowance, and the peak concurrent reservation. Usage assumes one token per four UTF-8 bytes. Live decisions and repairs can add calls. The script uses temporary campaign databases and invokes scripted providers. For live and replay commands, pass `--code-commit` with the revision that produced the recorded run. The explicit value overrides the preparation revision in the condition file.
+
 ## Commitment timeline
 
 Export a recorded SOC ledger and its public episode as one offline HTML page. The exporter verifies the hash chain and episode binding through a read-only SQLite connection before writing either output.
