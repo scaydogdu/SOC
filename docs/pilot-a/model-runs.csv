@@ -1,0 +1,1 @@
+run_id,episode_id,episode_revision,code_commit,condition_ref,model,effort,started_at_utc,finished_at_utc,wall_seconds,physical_attempts,failed_attempts,logical_calls,failed_logical_calls,input_tokens,output_tokens,usage_complete,settled_usd,run_status,artifact_ref,notes

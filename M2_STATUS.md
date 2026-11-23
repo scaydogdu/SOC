@@ -272,7 +272,40 @@ baseline: 34/34 branches (100.0%)
 
 The four proposed YAML files under `config/m2-live/` use the toy episode, GPT-6.1 Sol with GPT-6 Luna as successor, Claude Sonnet 5.5 as peer, and Gemini 3.8 Flash as reviewer. One chunk runs at a time. The proposed conditions are cross-examination at low and high effort, open discussion at low effort, and principal-only at low effort. The two Form modes use provisional low effort pending Can's choice. Form cross-examination can reuse the Keep run at that shared effort.
 
-A draft question-to-answer key is at `~/Library/Application Support/SOC/principal/toy.yaml`, outside the repository, with permissions 0600. It contains answers for the known toy terms and normative questions. Those answers still need Can's wording approval. The preparation tests insert a separate unasked preference and verify that its text, question and private key path never reach any worker prompt.
+### Billing inspection and readiness refresh
+
+Can's subsequent instruction to continue is treated as approval of the four prepared M2 conditions, provisional low effort for open discussion/principal-only, the external toy principal wording, and the proposed USD 15 incremental budget within the existing cap. This does not settle historical reservations or authorize a cap change. The USD 15 proposal is an operator budget; it has not changed the campaign's USD 40 stored cap. Launch remains subject to the explicit operator reconciliation and passing provider probes. Form/Align's final effort selection still follows Pilot A.
+
+On 23 November, a read-only browser inspection of Google AI Studio showed Gemini Project (`gen-lang-client-0637236478`) on the free tier. Its Spend page stated that no billing was currently configured. The usage chart showed HTTP 429 and 503 errors, consistent with the recorded failure types, but did not establish charges for the five individual attempts. Google Cloud also showed billing disabled for both Gemini-related projects in the account. These current settings do not establish historical per-attempt charges or independently identify the project behind the campaign credential.
+
+A fresh `spend status` still reports USD 0.1193114 settled and USD 34.9568 reserved under the USD 40 cap, leaving USD 4.9238886 headroom. No reservation was settled or released, no cap was changed, and no new provider call was made. The operator reconciliation required by the live brief remains pending.
+
+The offline preparation was rerun for all four conditions; each completed and reproduced the estimates below. The prepared defaults are approved as recorded above; live launch still requires operator reconciliation and passing provider probes. Pilot A is also unfinished: its retrieval tuning, 300 sentence pairs and approximately 200 inflected term occurrences must not be represented as completed by these toy runs.
+
+The readiness refresh passed `./scripts/check`: `All checks passed!`, `105 files already formatted`, `Success: no issues found in 54 source files`, `Contracts: 1 kept, 0 broken.`, and `290 passed, 3 deselected in 47.24s`. All module branch coverage floors passed; ledger coverage remained 352/382 branches (92.1%). No source changes or new tests were needed for this refresh.
+
+### Pilot A collection preparation
+
+`docs/pilot-a/README.md` now gives the collection and review workflow, with empty CSV templates for checker labels, inflected occurrences, model/effort usage and retrieval trials. It specifies contextual checker artifacts, independent labels, unknown outcomes, character offsets, retry denominators, pinned retrieval snapshots and the plan's instrument targets. No pilot observations have been collected by this preparation, no settings selected, and no provider calls made. The templates keep collection work ready while the campaign awaits operator reconciliation.
+
+All four CSV files parsed as header-only tables with unique columns. This documentation change adds no tests. `./scripts/check` passed again:
+
+```text
+All checks passed!
+106 files already formatted
+Success: no issues found in 54 source files
+Contracts: 1 kept, 0 broken.
+290 passed, 3 deselected in 48.82s
+timeline: 35/36 branches (97.2%)
+ledger: 352/382 branches (92.1%)
+episode: 52/54 branches (96.3%)
+segmenter: 67/68 branches (98.5%)
+providers: 155/166 branches (93.4%)
+checker: 66/68 branches (97.1%)
+baseline: 34/34 branches (100.0%)
+```
+
+A draft question-to-answer key is at `~/Library/Application Support/SOC/principal/toy.yaml`, outside the repository, with permissions 0600. It contains answers for the known toy terms and normative questions. The continuation approval recorded above covers this toy wording. The preparation tests insert a separate unasked preference and verify that its text, question and private key path never reach any worker prompt.
 
 ### Scripted cost estimate
 
@@ -292,7 +325,7 @@ Usage is a planning assumption of one token per four UTF-8 bytes, rounded up sep
 
 The read-only status check still reports a USD 40 cap, USD 0.1193114 settled and USD 34.9568 held in reservations 37, 38, 39, 40 and 43. Available headroom is USD 4.9238886. Operator reconciliation against Google billing is pending. The recorded probe report remains 14 of 18 effort combinations. The re-probe follows the reconciliation step in the live brief. No new provider calls were made for this preparation.
 
-Before launch, Can confirms the four-condition list, the Form effort, the principal wording, and the budget after reviewing the estimates. The live handoff explicitly reserves those decisions for Can.
+The continuation approval above covers the prepared four-condition list, the provisional low Form effort, toy principal wording and proposed budget. The live handoff still reserves operator settlement and cap changes for Can; neither was performed.
 
 ### Prepared launch and replay commands
 

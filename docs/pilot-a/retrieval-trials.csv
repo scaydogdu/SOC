@@ -1,0 +1,1 @@
+trial_id,query_id,query_ref,note_snapshot_ref,code_commit,embedder,embedder_revision,top_k,dense_weight,required_decision_ids,retrieved_decision_ids,superseded_decision_ids,latency_seconds,notes
