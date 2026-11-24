@@ -156,7 +156,7 @@ M0 finished on 11 November, four days early. Start M1 immediately; the early fin
 | M1 Providers, checker, RAG baseline | 12–22 Nov | Review + Can |
 | M2 SOC lifecycle and triads, with Pilot A | 23–29 Nov | Review + Can |
 | M3 Cooperation layer and evaluation | 30 Nov–6 Dec | Review + Can |
-| M4 Pilot B and instrument validation | 7–12 Dec | Nine go/no-go checks |
+| M4 Pilot B and instrument validation | 7–12 Dec | Ten go/no-go checks |
 | M5 Freeze and registration | 13 Dec | Runner locks |
 | M6 Main runs, analysis, release | 14 Dec–4 Jan | All 360 runs accounted for |
 | Episode authoring (parallel track) | 12 Nov–6 Dec | Coverage rule passes for all 12 |
@@ -289,7 +289,7 @@ Run the full matrix once on the pilot episodes: 3 Form, 4 Keep, 2 Align, 3 refer
 | Principal simulator | Every seeded question answered from the key |
 | RAG baseline strength | Keeps ≥ 90% of approved decisions before the first event; otherwise tune it until it does |
 
-### Go/no-go — the freeze goes ahead only if all nine hold
+### Go/no-go — the freeze goes ahead only if all ten hold
 
 1. Every condition completes every pilot episode, under 5% of calls failing after retries.
 2. Workers keep sentence IDs in ≥ 99% of outputs.
@@ -300,6 +300,7 @@ Run the full matrix once on the pilot episodes: 3 Form, 4 Keep, 2 Align, 3 refer
 7. The canary scan finds nothing in any pilot prompt.
 8. A pilot run replays exactly from the cache.
 9. A dry run of the analysis on pilot data produces every registered table.
+10. No `must` check returns "unknown" because of missing configuration in an evaluation episode, and runtime `must` unknowns are at most 1% of `must` checks in every condition (decided 24 November; the 1% default is Can's to change). See `CODEX_BRIEF_HELD_UNKNOWN.md`.
 
 ---
 
