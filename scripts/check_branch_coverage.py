@@ -4,6 +4,7 @@ import json
 import sys
 
 groups = {
+    "cooperation": ("soc/cooperation/",),
     "timeline": ("analysis/timeline.py",),
     "ledger": ("soc/ledger/",),
     "episode": ("soc/episode.py", "eval/episode.py"),

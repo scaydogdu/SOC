@@ -2,6 +2,8 @@
 
 M0 builds the foundations for testing whether a task-owned ledger preserves translation decisions across model replacement and brief changes. The milestone brief is in [CODEX_BRIEF_M0.md](CODEX_BRIEF_M0.md).
 
+M3 has started with a standalone runtime standing policy in `soc.cooperation.standing`. `StandingTracker` consumes ordered, attributed `RuntimeCheck` observations and recomputes recent standing, cumulative sanction permissions and vote weights. `config/m3-cooperation.yaml` holds provisional thresholds. The successor policy follows the plan's twelve-episode counterbalancing. This component does not yet enforce sanctions or weighted voting in the runners; see [M3_STATUS.md](M3_STATUS.md) for verification and remaining work. M2 live validation remains outstanding.
+
 ## Setup and checks
 
 With `uv` available on your PATH, run `uv sync --locked` to install the locked Python 3.12 environment. Run the every-commit suite with:

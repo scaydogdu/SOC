@@ -13,6 +13,9 @@
 - Confirm the shared maximum of two repair rounds per chunk and whether to report first-pass violations.
 - Decide whether `ALL` should cover only normative force, polarity and numbers. The M2 agreement table currently requires `ALL` for normative meaning.
 - Confirm the Align standing analysis and the interpretation of announced rules as possible prompt compliance.
+- M3 standing policy: confirm the recent-check window, minimum evidence, relative importance of runtime check kinds, sanction thresholds, lighter-vote multiplier and probation recovery rule. Initial configurable defaults are in `config/m3-cooperation.yaml`; the runners do not yet enforce them.
+- M3 weighted approval: specify how standing weights affect QUORUM while preserving authenticated approvers and ALL normative unanimity. No weighted threshold is implemented yet.
+- M3 analysis: the exit test says label swapping preserves every p-value, but the Form non-inferiority test is one-sided with a fixed margin. Confirm that invariance applies to two-sided paired tests, while non-inferiority is tested with its direction/margin transformed explicitly.
 - Confirm the executor successor policy. The plan defaults to the same family’s small model and rotates the family.
 - Confirm the number of Pilot B episodes, the main-run host, and whether to register publicly on OSF.
 

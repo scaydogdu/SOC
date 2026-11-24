@@ -1,0 +1,10 @@
+# Provisional implementation defaults, pending Can's policy decision and Pilot A.
+# Thresholds are strict: a score equal to the boundary avoids that sanction.
+window: 20
+minimum_checks: 5
+neutral_score: 1.0
+lighter_vote_below: 0.8
+no_review_below: 0.6
+no_vote_below: 0.4
+replacement_below: 0.2
+lighter_vote_multiplier: 0.5
