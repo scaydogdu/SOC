@@ -14,7 +14,7 @@ import yaml
 from pydantic import field_validator
 
 from eval.episode import Affected, FullEpisode, Seed, UseSite, validate
-from soc.episode import Record
+from soc.episode import Record, validate_runtime
 from soc.orchestrator.journal import run_lock
 from soc.orchestrator.live import (
     LiveConfig,
@@ -165,6 +165,7 @@ def _sites(sites: Sequence[UseSite | PredictedSite]) -> Counter[tuple[int, str]]
 async def check_episode(
     episode: FullEpisode, client: ModelClient, model: str, *, max_output_tokens: int
 ) -> tuple[Comparison, ...]:
+    validate_runtime(episode.runtime)
     results = []
     for index, seed in enumerate(episode.seeds, 1):
         prediction, outcome = await _predict(

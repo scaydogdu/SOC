@@ -308,7 +308,17 @@ def _gate_block(event: Row) -> bool:
     if event["type"] != "GateDecision":
         return False
     data = event["payload"].get("data")
-    return isinstance(data, dict) and data.get("accepted") is False
+    return (
+        isinstance(data, dict)
+        and data.get("accepted") is False
+        and (
+            any(row.get("outcome") == "block" for row in data.get("findings", []))
+            or not any(
+                row.get("outcome") in {"held", "unverified"}
+                for row in data.get("findings", [])
+            )
+        )
+    )
 
 
 def _check_paths(ledger: Path, outputs: Sequence[Path]) -> None:

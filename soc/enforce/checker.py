@@ -19,7 +19,9 @@ from soc.tasks.segmenter import BCP14
 
 _NUMBER = re.compile(r"(?<!\w)[+−-]?(?>0[xX][0-9A-Fa-f]+|\d+(?:[.,]\d+)*)(?!\w)")
 
-type RuleID = Literal["ids", "verbatim", "bcp14", "numbers", "term", "forbidden"]
+type RuleID = Literal[
+    "ids", "verbatim", "bcp14", "numbers", "term", "forbidden", "rule"
+]
 
 
 @dataclass(frozen=True)
@@ -31,7 +33,8 @@ class Finding:
     decision_id: str | None = None
     brief_clause_ids: tuple[str, ...] = ()
     strength: Strength = "must"
-    status: Literal["violation", "unknown"] = "violation"
+    status: Literal["violation", "unknown", "compliant", "unverified"] = "violation"
+    unknown_cause: Literal["configuration", "runtime"] | None = None
 
 
 @dataclass(frozen=True)
@@ -100,6 +103,7 @@ def _normative(
                     sentence.id,
                     f"No approved rendering for {keyword}",
                     status="unknown",
+                    unknown_cause="configuration",
                 )
             )
             continue
@@ -128,6 +132,74 @@ class Checker:
     def find_rendering(self, phrase: str, text: str) -> tuple[Span, ...]:
         return self.lemmatizer.find(phrase, text)
 
+    def count_must_checks(
+        self,
+        source: Sequence[Sentence],
+        output: ChunkOutput,
+        brief: Brief,
+        *,
+        decisions: Sequence[Decision] = (),
+        forbidden: Sequence[ForbiddenRendering] = (),
+        normative: Sequence[NormativeRendering] = (),
+    ) -> int:
+        """Count rule/sentence/decision opportunities, including passing checks.
+
+        Identity checks cover each expected sentence and unexpected output row.
+        Aligned translatable sentences get one numeric check, a check per modal
+        keyword, and one per applicable decision/forbidden rendering. Verbatim
+        sentences get a single verbatim check instead. Repeated gate invocations
+        are deduplicated separately by the content-addressed audit context.
+        """
+        ids = {row.id for row in source}
+        counts = Counter(row.sentence_id for row in output.sentences)
+        total = len(source) + sum(
+            row.sentence_id not in ids for row in output.sentences
+        )
+        mappings = (
+            *normative,
+            *(NormativeRendering(**row.model_dump()) for row in brief.normative),
+        )
+        clauses = {row.id for row in brief.clauses}
+        for sentence in source:
+            if counts[sentence.id] != 1:
+                continue
+            if not sentence.translatable:
+                total += 1
+                continue
+            total += 1  # Numeric preservation, including an empty numeric set.
+            for keyword in set(BCP14.findall(sentence.reading_text)):
+                rules = {
+                    row
+                    for row in mappings
+                    if row.keyword == keyword
+                    and row.brief_clause_id in clauses
+                    and row.value.strip()
+                }
+                total += len(rules) != 1 or next(iter(rules)).strength == "must"
+            scopes = set(sentence.scope_keys)
+            for decision in decisions:
+                applicable = decision.scope_keys & scopes
+                if (
+                    decision.strength == "must"
+                    and applicable
+                    and (
+                        decision.sentence_ids is None
+                        or sentence.id in decision.sentence_ids
+                    )
+                    and not (
+                        decision.kind == "non_lexical"
+                        and all(BCP14.fullmatch(key) for key in applicable)
+                    )
+                ):
+                    total += 1
+            total += sum(
+                row.strength == "must"
+                and bool(row.scope_keys & scopes)
+                and (row.sentence_ids is None or sentence.id in row.sentence_ids)
+                for row in forbidden
+            )
+        return total
+
     def check(
         self,
         source: Sequence[Sentence],
@@ -155,7 +227,10 @@ class Checker:
                 )
         clauses = {clause.id for clause in brief.clauses}
         candidates: dict[str, set[NormativeRendering]] = defaultdict(set)
-        for rule in normative:
+        for rule in (
+            *normative,
+            *(NormativeRendering(**row.model_dump()) for row in brief.normative),
+        ):
             if rule.brief_clause_id in clauses and rule.value.strip():
                 candidates[rule.keyword].add(rule)
         approved = {
@@ -204,6 +279,19 @@ class Checker:
                 continue
             applicable = decision.scope_keys & scopes
             if not applicable:
+                continue
+            if decision.kind not in {"term", "non_lexical", "scope_limited"}:
+                findings.append(
+                    Finding(
+                        "rule",
+                        sentence.id,
+                        f"No deterministic checker for {decision.kind}",
+                        decision_id=decision.ref.decision_id,
+                        strength=decision.strength,
+                        status="unknown",
+                        unknown_cause="configuration",
+                    )
+                )
                 continue
             # Normative interpretations attached only to BCP 14 keywords are
             # enforced by their approved modal rendering in the brief.

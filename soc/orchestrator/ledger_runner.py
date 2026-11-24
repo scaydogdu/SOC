@@ -3,7 +3,7 @@
 import asyncio
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal, Self
 
@@ -11,6 +11,12 @@ from pydantic import Field, model_validator
 
 from soc.cooperation.runtime import CooperationJournal, CooperationSettings
 from soc.enforce.checker import Checker
+from soc.enforce.meaning import (
+    CheckAssessment,
+    MeaningResolver,
+    MeaningStore,
+    MeaningUnavailable,
+)
 from soc.episode import Approval, Brief, Clause, Episode, load_runtime, validate_runtime
 from soc.ledger.models import (
     BINDING_STATES,
@@ -38,8 +44,12 @@ from soc.orchestrator.prompts import digest, json_text
 from soc.orchestrator.runner import ExperimentSettings, RunSpec, _write
 from soc.orchestrator.scheduled import record_approval, record_revisions
 from soc.principal.simulator import PrincipalSimulator
-from soc.providers.client import configured_credentials, ensure_no_credentials
-from soc.providers.models import Outcome
+from soc.providers.client import (
+    CacheMiss,
+    configured_credentials,
+    ensure_no_credentials,
+)
+from soc.providers.models import Outcome, ProviderRequestError
 from soc.triad.agreement import ResolutionMode
 from soc.triad.examination import Draft
 
@@ -86,7 +96,7 @@ type LedgerWorker = Callable[[Ledger, ChunkTask], Awaitable[WorkerDraft | Outcom
 
 @dataclass(frozen=True)
 class LedgerRunResult:
-    status: Literal["completed", "blocked", "budget_exhausted", "failed"]
+    status: Literal["completed", "blocked", "budget_exhausted", "failed", "unverified"]
     outcome: Outcome
     outputs: dict[str, ChunkOutput]
 
@@ -103,9 +113,14 @@ async def run_ledger_episode(
     worker_fingerprint: str | None = None,
     model_protocol: dict[str, object] | None = None,
     cooperation: CooperationJournal | None = None,
+    meaning_resolver: MeaningResolver | None = None,
 ) -> LedgerRunResult:
     """Drive drafting, durable builds, scheduled events, and final acceptance."""
-    episode = validate_runtime(load_runtime(episode_dir))
+    episode = validate_runtime(
+        load_runtime(episode_dir),
+        require_checkable=experiment.require_checkable,
+        normative=experiment.normative,
+    )
     if (spec.cooperation is None) != (cooperation is None):
         raise ValueError("cooperation settings require a runtime observer")
     if cooperation is not None and cooperation.settings != spec.cooperation:
@@ -118,6 +133,9 @@ async def run_ledger_episode(
                 episode.model_dump(mode="json"),
                 principal.actor.model_dump(mode="json"),
                 principal.fingerprint,
+                None
+                if meaning_resolver is None
+                else meaning_resolver.actor.model_dump(mode="json"),
                 *([worker_fingerprint] if worker_fingerprint is not None else []),
             ]
         )
@@ -145,6 +163,7 @@ async def run_ledger_episode(
             worker,
             model_protocol,
             cooperation,
+            meaning_resolver,
         )
         return await run.execute(episode)
 
@@ -161,6 +180,7 @@ class _LedgerExecution:
         worker: LedgerWorker,
         model_protocol: dict[str, object] | None,
         cooperation: CooperationJournal | None,
+        meaning_resolver: MeaningResolver | None,
     ) -> None:
         self.ledger = ledger
         self.directory = directory
@@ -171,6 +191,8 @@ class _LedgerExecution:
         self.worker = worker
         self.model_protocol = model_protocol
         self.cooperation = cooperation
+        self.meaning = MeaningStore(directory / "meaning.sqlite")
+        self.meaning_resolver = meaning_resolver
         self.actor = Actor(agent="executor", model=spec.initial_model, role="executor")
         self.successor = self.actor.model_copy(update={"model": spec.successor_model})
         self.handover: ExecutorHandover | None = None
@@ -218,8 +240,12 @@ class _LedgerExecution:
             chunk=chunk,
             actor=self.actor,
             ledger_version=state.ledger_version,
-            brief=Brief(
-                clauses=[Clause(id=key, text=text) for key, text in clauses.items()]
+            brief=self.ledger.initial_brief().model_copy(
+                update={
+                    "clauses": [
+                        Clause(id=key, text=text) for key, text in clauses.items()
+                    ]
+                }
             ),
             commitments={
                 key: ruling
@@ -319,6 +345,7 @@ class _LedgerExecution:
             if outcome is not Outcome.OK:
                 return outcome
             current = self.ledger.snapshot().chunks[chunk_id]
+            assessments: list[CheckAssessment] = []
             event = gate_chunk(
                 self.ledger,
                 self.actor,
@@ -328,12 +355,17 @@ class _LedgerExecution:
                 checker=self.checker,
                 load_output=self.load_output,
                 normative=self.experiment.normative,
+                observe=assessments.append,
             )
             verdict = GateDecision.model_validate(event.payload["data"])
+            for assessment in assessments:
+                self.meaning.observe(
+                    assessment.context_id, assessment.must_checks, assessment.held
+                )
             if self.cooperation is not None:
                 self.cooperation.sync(self.ledger)
             if (
-                verdict.accepted
+                not any(row.outcome == "block" for row in verdict.findings)
                 or current.build_number > self.experiment.max_repair_rounds
             ):
                 return Outcome.OK
@@ -363,7 +395,7 @@ class _LedgerExecution:
                     or key not in state.gates
                     or state.gates[key].build_number != state.chunks[key].build_number
                     or (
-                        not state.gates[key].accepted
+                        any(row.outcome == "block" for row in state.gates[key].findings)
                         and state.chunks[key].build_number
                         <= self.experiment.max_repair_rounds
                     )
@@ -393,22 +425,77 @@ class _LedgerExecution:
             outcome = await self.build_and_gate(chunk_id, path="final_sweep")
             if outcome is not Outcome.OK:
                 return self.publish(outcome, accepted=False)
-        verdicts = gate_chunks(
-            self.ledger,
-            self.actor,
-            {key: (chunk, None) for key, chunk in self.chunks.items()},
-            checker=self.checker,
-            load_output=self.load_output,
-            normative=self.experiment.normative,
-            path="final_sweep",
-        )
-        return self.publish(
-            Outcome.OK,
-            accepted=all(
-                GateDecision.model_validate(event.payload["data"]).accepted
-                for event in verdicts
-            ),
-        )
+        try:
+            return await self.finalize()
+        except MeaningUnavailable as error:
+            return self.publish(error.outcome, accepted=False)
+        except CacheMiss:
+            return self.publish(Outcome.CACHE_MISS, accepted=False)
+        except ProviderRequestError:
+            return self.publish(Outcome.PARSE_FAILED, accepted=False)
+
+    async def finalize(self) -> LedgerRunResult:
+        for _ in range(self.experiment.max_repair_rounds + 2):
+            assessments: list[CheckAssessment] = []
+            events = gate_chunks(
+                self.ledger,
+                self.actor,
+                {key: (chunk, None) for key, chunk in self.chunks.items()},
+                checker=self.checker,
+                load_output=self.load_output,
+                normative=self.experiment.normative,
+                path="final_sweep",
+                observe=assessments.append,
+            )
+            for assessment in assessments:
+                self.meaning.observe(
+                    assessment.context_id, assessment.must_checks, assessment.held
+                )
+                for check in assessment.held:
+                    resolution = await self.meaning.resolve(
+                        check, self.meaning_resolver
+                    )
+                    if resolution is not None:
+                        self.ledger.record(
+                            resolution.resolver, resolution, chunk_id=check.chunk_id
+                        )
+            if any(assessment.held for assessment in assessments):
+                events = gate_chunks(
+                    self.ledger,
+                    self.actor,
+                    {key: (chunk, None) for key, chunk in self.chunks.items()},
+                    checker=self.checker,
+                    load_output=self.load_output,
+                    normative=self.experiment.normative,
+                    path="final_sweep",
+                )
+            verdicts = {
+                event.chunk_id: GateDecision.model_validate(event.payload["data"])
+                for event in events
+            }
+            repaired = False
+            for key, verdict in verdicts.items():
+                if key is not None and any(
+                    row.outcome == "block" for row in verdict.findings
+                ):
+                    before = self.ledger.snapshot().chunks[key].build_number
+                    outcome = await self.build_and_gate(key, path="final_sweep")
+                    if outcome is not Outcome.OK:
+                        return self.publish(outcome, accepted=False)
+                    repaired |= self.ledger.snapshot().chunks[key].build_number > before
+            if repaired:
+                continue
+            held = any(verdict.held for verdict in verdicts.values())
+            blocked = any(
+                finding.outcome == "block"
+                for verdict in verdicts.values()
+                for finding in verdict.findings
+            )
+            return self.publish(
+                Outcome.UNVERIFIED if held and not blocked else Outcome.OK,
+                accepted=all(row.accepted for row in verdicts.values()),
+            )
+        return self.publish(Outcome.HELD_VIOLATION, accepted=False)
 
     def publish(self, outcome: Outcome, *, accepted: bool) -> LedgerRunResult:
         if self.cooperation is not None:
@@ -419,10 +506,14 @@ class _LedgerExecution:
             for key, build in state.chunks.items()
             if build.output_ref is not None
         }
-        status: Literal["completed", "blocked", "budget_exhausted", "failed"]
+        status: Literal[
+            "completed", "blocked", "budget_exhausted", "failed", "unverified"
+        ]
         if outcome is Outcome.OK:
             status = "completed" if accepted else "blocked"
-        elif outcome is Outcome.COOPERATION_BLOCKED:
+        elif outcome is Outcome.UNVERIFIED:
+            status = "unverified"
+        elif outcome in {Outcome.COOPERATION_BLOCKED, Outcome.HELD_VIOLATION}:
             status = "blocked"
         else:
             status = (
@@ -443,6 +534,7 @@ class _LedgerExecution:
                 if key in outputs
             ),
         )
+        assessments: list[CheckAssessment] = []
         findings = (
             state.gates
             if outcome is Outcome.OK
@@ -452,7 +544,53 @@ class _LedgerExecution:
                 checker=self.checker,
                 load_output=self.load_output,
                 normative=self.experiment.normative,
+                observe=assessments.append,
             )
+        )
+        for assessment in assessments:
+            self.meaning.observe(
+                assessment.context_id, assessment.must_checks, assessment.held
+            )
+        findings = {
+            key: row.model_copy(
+                update={
+                    "findings": [
+                        finding.model_copy(update={"outcome": "unverified"})
+                        if finding.outcome == "held"
+                        else finding
+                        for finding in row.findings
+                    ]
+                }
+            )
+            for key, row in findings.items()
+        }
+        _write(
+            self.directory,
+            "unknowns.json",
+            json_text(
+                {
+                    "condition": self.spec.condition,
+                    "episode_id": self.spec.episode_id,
+                    "run_id": self.spec.run_id,
+                    **self.meaning.report(
+                        limit=self.experiment.unknown_rate_limit,
+                        unverified_final=sum(
+                            finding.outcome == "unverified"
+                            for verdict in findings.values()
+                            for finding in verdict.findings
+                        ),
+                    ),
+                }
+            )
+            + "\n",
+        )
+        _write(
+            self.directory,
+            "assembly.json",
+            json_text(
+                {"accepted": status == "completed" and accepted, "status": status}
+            )
+            + "\n",
         )
         _write(
             self.directory,
@@ -481,6 +619,7 @@ class _LedgerExecution:
                     "status": status,
                     "outcome": outcome,
                     "chunks_completed": len(outputs),
+                    "meaning_usage": asdict(self.meaning.usage(self.meaning_resolver)),
                 }
             )
             + "\n",

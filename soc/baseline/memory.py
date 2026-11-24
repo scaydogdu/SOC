@@ -218,5 +218,10 @@ def _pinned(notes: tuple[Note, ...], brief: Brief) -> str:
         {
             "brief": [clause.model_dump() for clause in brief.clauses],
             "decisions": guidance,
-        },
+        }
+        | (
+            {"normative": brief.public_data()["normative"]}
+            if "normative" in brief.public_data()
+            else {}
+        ),
     )

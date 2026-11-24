@@ -36,6 +36,7 @@ from soc.ledger.models import (
     FlagResolved,
     GateDecision,
     GateFinding,
+    HeldResolution,
     OperationAuthority,
     PrincipalAnswered,
     Record,
@@ -109,10 +110,14 @@ class Projection:
     executor: ExecutorRebound | None = None
     open_flags: dict[str, tuple[str, FlagRaised]] = field(default_factory=dict)
     gates: dict[str, GateDecision] = field(default_factory=dict)
+    held_resolutions: dict[str, HeldResolution] = field(default_factory=dict)
 
     def _apply(self, event: Event) -> None:
         self.ledger_version = event.ledger_version
-        if event.new_version is not None:
+        if event.type == "HeldResolved":
+            resolution = _payload(event, HeldResolution)
+            self.held_resolutions[resolution.check_id] = resolution
+        elif event.new_version is not None:
             change = _payload(event, VersionChange)
             commitment = change.commitment
             version = change.version
@@ -258,7 +263,7 @@ class Ledger:
             raise ValueError("operation authority requires a public episode")
         self._authority = authority
         self._episode = (
-            validate_runtime(episode.model_copy(deep=True))
+            validate_runtime(episode.model_copy(deep=True), require_checkable=False)
             if episode is not None
             else None
         )
@@ -912,7 +917,8 @@ class Ledger:
         | ExecutorRebound
         | PrincipalAnswered
         | FlagRaised
-        | FlagResolved,
+        | FlagResolved
+        | HeldResolution,
         *,
         chunk_id: str | None = None,
         base_build: int = 0,
@@ -927,7 +933,36 @@ class Ledger:
             revised_refs: list[CommitmentVersion] = []
             links: Node | None = None
             kind: EventType
-            if isinstance(payload, (BriefChanged, PrincipalAnswered)):
+            if isinstance(payload, HeldResolution):
+                kind = "HeldResolved"
+                if (
+                    actor != payload.resolver
+                    or actor.role != "resolver"
+                    or chunk_id != payload.chunk_id
+                ):
+                    raise AuthorityError(
+                        "held resolution requires its authenticated resolver and chunk"
+                    )
+                if prior := self._event_with_field(kind, "check_id", payload.check_id):
+                    if _payload(prior, HeldResolution) != payload:
+                        raise ValueError(
+                            "held resolution differs from its recorded verdict"
+                        )
+                    return prior
+                self._sync()
+                gate = self._live.gates.get(payload.chunk_id)
+                if (
+                    gate is None
+                    or gate.build_number != payload.build_number
+                    or not any(
+                        row.check_id == payload.check_id and row.outcome == "held"
+                        for row in gate.findings
+                    )
+                ):
+                    raise ValueError(
+                        "resolution must identify a held finding on the current build"
+                    )
+            elif isinstance(payload, (BriefChanged, PrincipalAnswered)):
                 self._require_principal(actor)
                 if isinstance(payload, PrincipalAnswered):
                     kind = "PrincipalAnswered"
@@ -1313,10 +1348,19 @@ class Ledger:
             findings = _dependency_findings(state, build, stale=stale)
             if evaluate is not None:
                 findings.extend(evaluate(chunk_id, state, build))
+            findings = [
+                row.model_copy(update={"outcome": "held"})
+                if row.outcome == "unknown" and row.strength not in {"should", "may"}
+                else row
+                for row in findings
+            ]
             yield (
                 chunk_id,
                 GateDecision(
-                    accepted=all(item.outcome != "block" for item in findings),
+                    accepted=all(
+                        item.outcome not in {"block", "held", "unverified"}
+                        for item in findings
+                    ),
                     reason=", ".join(item.detail for item in findings)
                     if findings
                     else "gate checks passed",

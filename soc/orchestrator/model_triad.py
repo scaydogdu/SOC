@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from soc.cooperation.runtime import CooperationJournal, actor_key
 from soc.enforce.checker import Checker
+from soc.enforce.meaning import MeaningResolver, ModelMeaningResolver
 from soc.episode import Brief, Clause
 from soc.ledger.models import (
     BINDING_STATES,
@@ -150,11 +151,20 @@ async def run_model_ledger_episode(
     client: ModelClient,
     team: ModelTeam,
     agreement: AgreementRules,
+    meaning_resolver: MeaningResolver | None = None,
 ) -> LedgerRunResult:
     """Run the model-backed SOC condition with recording, replay, or fake routes."""
     if client.run_id != spec.run_id or client.run_dir != run_dir.resolve():
         raise ValueError("model client must belong to the SOC run")
     team.validate(spec, client)
+    if meaning_resolver is None and experiment.meaning_model is not None:
+        meaning_resolver = ModelMeaningResolver(
+            client,
+            experiment.meaning_model,
+            spec.effort,
+            spec.replicate,
+            experiment.max_output_tokens,
+        )
     worker = ModelTriad(spec, experiment, client, team, agreement, principal, checker)
     if spec.cooperation is not None:
         worker.cooperation = CooperationJournal(
@@ -192,6 +202,7 @@ async def run_model_ledger_episode(
         worker_fingerprint=fingerprint,
         model_protocol=worker.configuration,
         cooperation=worker.cooperation,
+        meaning_resolver=meaning_resolver,
     )
 
 
@@ -267,8 +278,12 @@ class ModelTriad:
             observed = state.ledger_version
             clauses = {clause.id: clause.text for clause in task.brief.clauses}
             clauses.update(state.brief)
-            return Brief(
-                clauses=[Clause(id=key, text=text) for key, text in clauses.items()]
+            return task.brief.model_copy(
+                update={
+                    "clauses": [
+                        Clause(id=key, text=text) for key, text in clauses.items()
+                    ]
+                }
             ), state.current
 
         def record_flag(difference: Difference) -> None:
@@ -431,7 +446,7 @@ class ModelTriad:
             brief, commitments = memory.evidence()
             return {
                 "source": by_id[sentence_id].model_dump(mode="json"),
-                "brief": brief.model_dump(mode="json"),
+                "brief": brief.public_data(),
                 "commitments": relevant(commitments),
                 "revision_hints": memory.revision_hints(sentence_id),
             }
@@ -447,7 +462,7 @@ class ModelTriad:
                 DraftReply,
                 {
                     "source": [sentence.model_dump(mode="json") for sentence in source],
-                    "brief": task.brief.model_dump(mode="json"),
+                    "brief": task.brief.public_data(),
                     "commitments": relevant(task.commitments),
                     "previous": None
                     if task.previous is None

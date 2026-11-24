@@ -4,6 +4,7 @@ import json
 import sys
 
 groups = {
+    "held_reporting": ("eval/continuity.py", "analysis/unknowns.py"),
     "cooperation": ("soc/cooperation/",),
     "timeline": ("analysis/timeline.py",),
     "ledger": ("soc/ledger/",),

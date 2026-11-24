@@ -20,6 +20,13 @@
               "findings": [],
               "reason": "gate checks passed",
               "seq": 48
+            },
+            {
+              "accepted": true,
+              "build_number": 1,
+              "findings": [],
+              "reason": "gate checks passed",
+              "seq": 52
             }
           ],
           "ledger_version": 0,
@@ -76,18 +83,21 @@
           ],
           "gate_decisions": [
             {
-              "accepted": true,
+              "accepted": false,
               "build_number": 1,
               "findings": [
                 {
+                  "brief_clause_ids": [],
+                  "check_id": "df786f61440b505aef06d6f2a605171c23050e2194152811cf144608fce57d4f",
                   "commitment_id": null,
                   "detail": "No approved rendering for MUST",
                   "end": null,
-                  "outcome": "unknown",
+                  "outcome": "held",
                   "rule": "bcp14",
                   "sentence_id": "9999-1-s03",
                   "start": null,
-                  "strength": "must"
+                  "strength": "must",
+                  "unknown_cause": "configuration"
                 }
               ],
               "reason": "No approved rendering for MUST",
@@ -183,40 +193,67 @@
           "detections": [],
           "gate_decisions": [
             {
-              "accepted": true,
+              "accepted": false,
               "build_number": 2,
               "findings": [
                 {
+                  "brief_clause_ids": [],
+                  "check_id": "07eff53911f47a8835da66917fbd35b2eee09d4471bf977422ca0dbd5d97a7fa",
                   "commitment_id": null,
                   "detail": "No approved rendering for MUST",
                   "end": null,
-                  "outcome": "unknown",
+                  "outcome": "held",
                   "rule": "bcp14",
                   "sentence_id": "9999-1-s03",
                   "start": null,
-                  "strength": "must"
+                  "strength": "must",
+                  "unknown_cause": "configuration"
                 }
               ],
               "reason": "No approved rendering for MUST",
               "seq": 40
             },
             {
-              "accepted": true,
+              "accepted": false,
               "build_number": 2,
               "findings": [
                 {
+                  "brief_clause_ids": [],
+                  "check_id": "07eff53911f47a8835da66917fbd35b2eee09d4471bf977422ca0dbd5d97a7fa",
                   "commitment_id": null,
                   "detail": "No approved rendering for MUST",
                   "end": null,
-                  "outcome": "unknown",
+                  "outcome": "held",
                   "rule": "bcp14",
                   "sentence_id": "9999-1-s03",
                   "start": null,
-                  "strength": "must"
+                  "strength": "must",
+                  "unknown_cause": "configuration"
                 }
               ],
               "reason": "No approved rendering for MUST",
               "seq": 49
+            },
+            {
+              "accepted": false,
+              "build_number": 2,
+              "findings": [
+                {
+                  "brief_clause_ids": [],
+                  "check_id": "07eff53911f47a8835da66917fbd35b2eee09d4471bf977422ca0dbd5d97a7fa",
+                  "commitment_id": null,
+                  "detail": "No approved rendering for MUST",
+                  "end": null,
+                  "outcome": "held",
+                  "rule": "bcp14",
+                  "sentence_id": "9999-1-s03",
+                  "start": null,
+                  "strength": "must",
+                  "unknown_cause": "configuration"
+                }
+              ],
+              "reason": "No approved rendering for MUST",
+              "seq": 53
             }
           ],
           "ledger_version": 33,
@@ -326,18 +363,21 @@
           ],
           "gate_decisions": [
             {
-              "accepted": true,
+              "accepted": false,
               "build_number": 1,
               "findings": [
                 {
+                  "brief_clause_ids": [],
+                  "check_id": "1f3380901b16cb0a954f0ea1ca7ba777c89e1e5085a9416f723d126fb15a356c",
                   "commitment_id": null,
                   "detail": "No approved rendering for MUST",
                   "end": null,
-                  "outcome": "unknown",
+                  "outcome": "held",
                   "rule": "bcp14",
                   "sentence_id": "9999-2-s01",
                   "start": null,
-                  "strength": "must"
+                  "strength": "must",
+                  "unknown_cause": "configuration"
                 }
               ],
               "reason": "No approved rendering for MUST",
@@ -433,40 +473,67 @@
           "detections": [],
           "gate_decisions": [
             {
-              "accepted": true,
+              "accepted": false,
               "build_number": 2,
               "findings": [
                 {
+                  "brief_clause_ids": [],
+                  "check_id": "f95e8298370a7f02c007451ec41b98724fed9de6eca58a3388a92d04dab6292e",
                   "commitment_id": null,
                   "detail": "No approved rendering for MUST",
                   "end": null,
-                  "outcome": "unknown",
+                  "outcome": "held",
                   "rule": "bcp14",
                   "sentence_id": "9999-2-s01",
                   "start": null,
-                  "strength": "must"
+                  "strength": "must",
+                  "unknown_cause": "configuration"
                 }
               ],
               "reason": "No approved rendering for MUST",
               "seq": 47
             },
             {
-              "accepted": true,
+              "accepted": false,
               "build_number": 2,
               "findings": [
                 {
+                  "brief_clause_ids": [],
+                  "check_id": "f95e8298370a7f02c007451ec41b98724fed9de6eca58a3388a92d04dab6292e",
                   "commitment_id": null,
                   "detail": "No approved rendering for MUST",
                   "end": null,
-                  "outcome": "unknown",
+                  "outcome": "held",
                   "rule": "bcp14",
                   "sentence_id": "9999-2-s01",
                   "start": null,
-                  "strength": "must"
+                  "strength": "must",
+                  "unknown_cause": "configuration"
                 }
               ],
               "reason": "No approved rendering for MUST",
               "seq": 50
+            },
+            {
+              "accepted": false,
+              "build_number": 2,
+              "findings": [
+                {
+                  "brief_clause_ids": [],
+                  "check_id": "f95e8298370a7f02c007451ec41b98724fed9de6eca58a3388a92d04dab6292e",
+                  "commitment_id": null,
+                  "detail": "No approved rendering for MUST",
+                  "end": null,
+                  "outcome": "held",
+                  "rule": "bcp14",
+                  "sentence_id": "9999-2-s01",
+                  "start": null,
+                  "strength": "must",
+                  "unknown_cause": "configuration"
+                }
+              ],
+              "reason": "No approved rendering for MUST",
+              "seq": 54
             }
           ],
           "ledger_version": 40,
@@ -570,40 +637,67 @@
           "detections": [],
           "gate_decisions": [
             {
-              "accepted": true,
+              "accepted": false,
               "build_number": 1,
               "findings": [
                 {
+                  "brief_clause_ids": [],
+                  "check_id": "76d66a31596ef654957063e328e94b569880f6b11b265770431dbb4f21d57dc9",
                   "commitment_id": null,
                   "detail": "No approved rendering for MUST",
                   "end": null,
-                  "outcome": "unknown",
+                  "outcome": "held",
                   "rule": "bcp14",
                   "sentence_id": "9999-2-s03",
                   "start": null,
-                  "strength": "must"
+                  "strength": "must",
+                  "unknown_cause": "configuration"
                 }
               ],
               "reason": "No approved rendering for MUST",
               "seq": 33
             },
             {
-              "accepted": true,
+              "accepted": false,
               "build_number": 1,
               "findings": [
                 {
+                  "brief_clause_ids": [],
+                  "check_id": "76d66a31596ef654957063e328e94b569880f6b11b265770431dbb4f21d57dc9",
                   "commitment_id": null,
                   "detail": "No approved rendering for MUST",
                   "end": null,
-                  "outcome": "unknown",
+                  "outcome": "held",
                   "rule": "bcp14",
                   "sentence_id": "9999-2-s03",
                   "start": null,
-                  "strength": "must"
+                  "strength": "must",
+                  "unknown_cause": "configuration"
                 }
               ],
               "reason": "No approved rendering for MUST",
               "seq": 51
+            },
+            {
+              "accepted": false,
+              "build_number": 1,
+              "findings": [
+                {
+                  "brief_clause_ids": [],
+                  "check_id": "76d66a31596ef654957063e328e94b569880f6b11b265770431dbb4f21d57dc9",
+                  "commitment_id": null,
+                  "detail": "No approved rendering for MUST",
+                  "end": null,
+                  "outcome": "held",
+                  "rule": "bcp14",
+                  "sentence_id": "9999-2-s03",
+                  "start": null,
+                  "strength": "must",
+                  "unknown_cause": "configuration"
+                }
+              ],
+              "reason": "No approved rendering for MUST",
+              "seq": 55
             }
           ],
           "ledger_version": 27,
@@ -1841,23 +1935,26 @@
       "chunk_id": "chunk-2",
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000013",
-      "hash": "ba4d60c72e23ddddb2b8a67f62098c6dac8afe71c236170f2d95e1220378ab56",
+      "hash": "e7ff2d1cd6dc8c2d904f4ae988d782202aff0e487b957783886f64da703382a2",
       "ledger_version": 13,
       "new_version": null,
       "payload": {
         "data": {
-          "accepted": true,
+          "accepted": false,
           "build_number": 1,
           "findings": [
             {
+              "brief_clause_ids": [],
+              "check_id": "df786f61440b505aef06d6f2a605171c23050e2194152811cf144608fce57d4f",
               "commitment_id": null,
               "detail": "No approved rendering for MUST",
               "end": null,
-              "outcome": "unknown",
+              "outcome": "held",
               "rule": "bcp14",
               "sentence_id": "9999-1-s03",
               "start": null,
-              "strength": "must"
+              "strength": "must",
+              "unknown_cause": "configuration"
             }
           ],
           "reason": "No approved rendering for MUST"
@@ -1879,7 +1976,7 @@
       "chunk_id": null,
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000014",
-      "hash": "5f5a1fbd98c577dbb85eadc212310508169e2238c74ace8ed760aa69b899653a",
+      "hash": "a394961dd147b7653414cfbfe5906aaa6f73460e1f2452adf5b307cd8b810e50",
       "ledger_version": 14,
       "new_version": null,
       "payload": {
@@ -1889,7 +1986,7 @@
           "old_model": "old-fake"
         }
       },
-      "prev_hash": "ba4d60c72e23ddddb2b8a67f62098c6dac8afe71c236170f2d95e1220378ab56",
+      "prev_hash": "e7ff2d1cd6dc8c2d904f4ae988d782202aff0e487b957783886f64da703382a2",
       "run_id": "scripted-soc",
       "seq": 14,
       "time": "2026-11-18T00:00:00+00:00",
@@ -1905,7 +2002,7 @@
       "chunk_id": "chunk-3",
       "commitment_id": "D1",
       "event_id": "00000000-0000-4000-8000-000000000015",
-      "hash": "0968667e1466554ef0220a534d0102b84a482d2e46d8e9d5d4ff65dbf0dce28d",
+      "hash": "1de1a21763d4f4e076d2bf45e01c2df2acf6fc5f691557886bd82cbb4c0d5077",
       "ledger_version": 15,
       "new_version": null,
       "payload": {
@@ -1920,7 +2017,7 @@
           "start": 0
         }
       },
-      "prev_hash": "5f5a1fbd98c577dbb85eadc212310508169e2238c74ace8ed760aa69b899653a",
+      "prev_hash": "a394961dd147b7653414cfbfe5906aaa6f73460e1f2452adf5b307cd8b810e50",
       "run_id": "scripted-soc",
       "seq": 15,
       "time": "2026-11-18T00:00:00+00:00",
@@ -1936,7 +2033,7 @@
       "chunk_id": "chunk-3",
       "commitment_id": "D2",
       "event_id": "00000000-0000-4000-8000-000000000016",
-      "hash": "925210ca40e0a10cadc9af74fef6f32ebddff500065e9dfc6340157648515cdc",
+      "hash": "7c5f77eba74e695adb874f65eb269e30137ad575bb9405920d04259b399f2aa8",
       "ledger_version": 16,
       "new_version": null,
       "payload": {
@@ -1951,7 +2048,7 @@
           "start": 15
         }
       },
-      "prev_hash": "0968667e1466554ef0220a534d0102b84a482d2e46d8e9d5d4ff65dbf0dce28d",
+      "prev_hash": "1de1a21763d4f4e076d2bf45e01c2df2acf6fc5f691557886bd82cbb4c0d5077",
       "run_id": "scripted-soc",
       "seq": 16,
       "time": "2026-11-18T00:00:00+00:00",
@@ -1967,7 +2064,7 @@
       "chunk_id": "chunk-3",
       "commitment_id": "D3",
       "event_id": "00000000-0000-4000-8000-000000000017",
-      "hash": "d3d5e8696a756da12390da1fa04696268cf63494ace4a3398c451205f08dfa50",
+      "hash": "59bd00a57cfeed8ed20aeb33197a1e2cea22be1c71955b425f596fb8605e9d98",
       "ledger_version": 17,
       "new_version": null,
       "payload": {
@@ -1982,7 +2079,7 @@
           "start": 35
         }
       },
-      "prev_hash": "925210ca40e0a10cadc9af74fef6f32ebddff500065e9dfc6340157648515cdc",
+      "prev_hash": "7c5f77eba74e695adb874f65eb269e30137ad575bb9405920d04259b399f2aa8",
       "run_id": "scripted-soc",
       "seq": 17,
       "time": "2026-11-18T00:00:00+00:00",
@@ -1998,7 +2095,7 @@
       "chunk_id": "chunk-3",
       "commitment_id": "D5",
       "event_id": "00000000-0000-4000-8000-000000000018",
-      "hash": "52ac275ca377d6ec0f7591e81c91506c762d1b433a99ed62e0d9ce494fedc964",
+      "hash": "6a57350250cea3db233d6b67e6ae28cd4aa4d49997fd7d955395bd4d0e4ef159",
       "ledger_version": 18,
       "new_version": null,
       "payload": {
@@ -2013,7 +2110,7 @@
           "start": 0
         }
       },
-      "prev_hash": "d3d5e8696a756da12390da1fa04696268cf63494ace4a3398c451205f08dfa50",
+      "prev_hash": "59bd00a57cfeed8ed20aeb33197a1e2cea22be1c71955b425f596fb8605e9d98",
       "run_id": "scripted-soc",
       "seq": 18,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2029,7 +2126,7 @@
       "chunk_id": "chunk-3",
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000019",
-      "hash": "28528c399b7d207b565d1d63a0a11e3ba5c21a91fc97a4a6e5abdee078709dac",
+      "hash": "85c29369b11d67f206b43ab5f7f1df13c51ad8567a32c4a0b9a79304185cc9b8",
       "ledger_version": 19,
       "new_version": null,
       "payload": {
@@ -2093,7 +2190,7 @@
           ]
         }
       },
-      "prev_hash": "52ac275ca377d6ec0f7591e81c91506c762d1b433a99ed62e0d9ce494fedc964",
+      "prev_hash": "6a57350250cea3db233d6b67e6ae28cd4aa4d49997fd7d955395bd4d0e4ef159",
       "run_id": "scripted-soc",
       "seq": 19,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2109,29 +2206,32 @@
       "chunk_id": "chunk-3",
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000020",
-      "hash": "ab1eec303c7668594bd36f4ca1763668cfb930695e6d77975e571450b77c69f6",
+      "hash": "f0f7c0c9e8a3d4428a64fffa4968f69de468bd349ed6eece1d847eee5ede8b67",
       "ledger_version": 20,
       "new_version": null,
       "payload": {
         "data": {
-          "accepted": true,
+          "accepted": false,
           "build_number": 1,
           "findings": [
             {
+              "brief_clause_ids": [],
+              "check_id": "1f3380901b16cb0a954f0ea1ca7ba777c89e1e5085a9416f723d126fb15a356c",
               "commitment_id": null,
               "detail": "No approved rendering for MUST",
               "end": null,
-              "outcome": "unknown",
+              "outcome": "held",
               "rule": "bcp14",
               "sentence_id": "9999-2-s01",
               "start": null,
-              "strength": "must"
+              "strength": "must",
+              "unknown_cause": "configuration"
             }
           ],
           "reason": "No approved rendering for MUST"
         }
       },
-      "prev_hash": "28528c399b7d207b565d1d63a0a11e3ba5c21a91fc97a4a6e5abdee078709dac",
+      "prev_hash": "85c29369b11d67f206b43ab5f7f1df13c51ad8567a32c4a0b9a79304185cc9b8",
       "run_id": "scripted-soc",
       "seq": 20,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2147,7 +2247,7 @@
       "chunk_id": null,
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000021",
-      "hash": "f1361c3ef581132f738c8405a4bcd79e9f2b23bed04acc774186b5b18eb0692e",
+      "hash": "d28a583d0efd0a0ccd1329a6a4f884aeac07a54351afafc42db8a3fa86c64b06",
       "ledger_version": 21,
       "new_version": null,
       "payload": {
@@ -2158,7 +2258,7 @@
           }
         }
       },
-      "prev_hash": "ab1eec303c7668594bd36f4ca1763668cfb930695e6d77975e571450b77c69f6",
+      "prev_hash": "f0f7c0c9e8a3d4428a64fffa4968f69de468bd349ed6eece1d847eee5ede8b67",
       "run_id": "scripted-soc",
       "seq": 21,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2174,7 +2274,7 @@
       "chunk_id": null,
       "commitment_id": "D1",
       "event_id": "00000000-0000-4000-8000-000000000022",
-      "hash": "b680952d6510466934a8d4c569fb542e1ee59cce1528b0c6ac2ed3a5b424fbf3",
+      "hash": "3e999c82c15579d560a15856fb816a7d3c94a5bd1b5c2bf17b6016b394080e6c",
       "ledger_version": 22,
       "new_version": 2,
       "payload": {
@@ -2248,7 +2348,7 @@
           }
         }
       },
-      "prev_hash": "f1361c3ef581132f738c8405a4bcd79e9f2b23bed04acc774186b5b18eb0692e",
+      "prev_hash": "d28a583d0efd0a0ccd1329a6a4f884aeac07a54351afafc42db8a3fa86c64b06",
       "run_id": "scripted-soc",
       "seq": 22,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2264,7 +2364,7 @@
       "chunk_id": null,
       "commitment_id": "D1",
       "event_id": "00000000-0000-4000-8000-000000000023",
-      "hash": "500783a7403d86b1d188a3b4a11f09d7c0d6439e43fb63f55ffdcadee5c0c416",
+      "hash": "6e8290c2c06c11cee1051360768524a363a5f77a6fd1ba7578bea0b954aaf47f",
       "ledger_version": 23,
       "new_version": null,
       "payload": {
@@ -2280,7 +2380,7 @@
           }
         }
       },
-      "prev_hash": "b680952d6510466934a8d4c569fb542e1ee59cce1528b0c6ac2ed3a5b424fbf3",
+      "prev_hash": "3e999c82c15579d560a15856fb816a7d3c94a5bd1b5c2bf17b6016b394080e6c",
       "run_id": "scripted-soc",
       "seq": 23,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2296,7 +2396,7 @@
       "chunk_id": null,
       "commitment_id": "D1",
       "event_id": "00000000-0000-4000-8000-000000000024",
-      "hash": "43357106d517ea0661526375834f95bff527afe6469fa4965e236e7c49feffe1",
+      "hash": "be1aa5c4e502b08fd6e325eac9c6969e107c7808f577190d6fb126ba95ef3f09",
       "ledger_version": 24,
       "new_version": null,
       "payload": {
@@ -2314,7 +2414,7 @@
           "version": 1
         }
       },
-      "prev_hash": "500783a7403d86b1d188a3b4a11f09d7c0d6439e43fb63f55ffdcadee5c0c416",
+      "prev_hash": "6e8290c2c06c11cee1051360768524a363a5f77a6fd1ba7578bea0b954aaf47f",
       "run_id": "scripted-soc",
       "seq": 24,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2330,7 +2430,7 @@
       "chunk_id": null,
       "commitment_id": "D5",
       "event_id": "00000000-0000-4000-8000-000000000025",
-      "hash": "1bd772729409c80448649681b9f9cf5e3559b90a8d87deabe6b32ac331deff78",
+      "hash": "09e5d4eba85e888394600fe3595fcdf49a87de4e7e8b50d3194b285bbbd5e1f6",
       "ledger_version": 25,
       "new_version": 2,
       "payload": {
@@ -2404,7 +2504,7 @@
           }
         }
       },
-      "prev_hash": "43357106d517ea0661526375834f95bff527afe6469fa4965e236e7c49feffe1",
+      "prev_hash": "be1aa5c4e502b08fd6e325eac9c6969e107c7808f577190d6fb126ba95ef3f09",
       "run_id": "scripted-soc",
       "seq": 25,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2420,7 +2520,7 @@
       "chunk_id": null,
       "commitment_id": "D5",
       "event_id": "00000000-0000-4000-8000-000000000026",
-      "hash": "08fc6fc40359700cd3688d15dc5caa304e9d3522582e372937717f665cc8f4c3",
+      "hash": "5b076895a9448121c1dace3fdd74deee5e9dbb4bc4b43ddec5702d418da5e97a",
       "ledger_version": 26,
       "new_version": null,
       "payload": {
@@ -2436,7 +2536,7 @@
           }
         }
       },
-      "prev_hash": "1bd772729409c80448649681b9f9cf5e3559b90a8d87deabe6b32ac331deff78",
+      "prev_hash": "09e5d4eba85e888394600fe3595fcdf49a87de4e7e8b50d3194b285bbbd5e1f6",
       "run_id": "scripted-soc",
       "seq": 26,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2452,7 +2552,7 @@
       "chunk_id": null,
       "commitment_id": "D5",
       "event_id": "00000000-0000-4000-8000-000000000027",
-      "hash": "4f6896a29160f3c91f503c21da362c20683b1e150e0a01707a4d870a7ce94226",
+      "hash": "215ab90dc4fbb61116637e5a416ebe3afb37bf196b29eddb610d783ab824e44f",
       "ledger_version": 27,
       "new_version": null,
       "payload": {
@@ -2470,7 +2570,7 @@
           "version": 1
         }
       },
-      "prev_hash": "08fc6fc40359700cd3688d15dc5caa304e9d3522582e372937717f665cc8f4c3",
+      "prev_hash": "5b076895a9448121c1dace3fdd74deee5e9dbb4bc4b43ddec5702d418da5e97a",
       "run_id": "scripted-soc",
       "seq": 27,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2486,7 +2586,7 @@
       "chunk_id": "chunk-4",
       "commitment_id": "D1",
       "event_id": "00000000-0000-4000-8000-000000000028",
-      "hash": "6ba96dcdc62a07ad23361b966ff4be414caebd3089b1a51a95eb959c4688e4fb",
+      "hash": "d6f3ea5e60e40095b54587be2ec3502709e47572da3543139bcf72385d1b2d41",
       "ledger_version": 28,
       "new_version": null,
       "payload": {
@@ -2501,7 +2601,7 @@
           "start": 0
         }
       },
-      "prev_hash": "4f6896a29160f3c91f503c21da362c20683b1e150e0a01707a4d870a7ce94226",
+      "prev_hash": "215ab90dc4fbb61116637e5a416ebe3afb37bf196b29eddb610d783ab824e44f",
       "run_id": "scripted-soc",
       "seq": 28,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2517,7 +2617,7 @@
       "chunk_id": "chunk-4",
       "commitment_id": "D2",
       "event_id": "00000000-0000-4000-8000-000000000029",
-      "hash": "f1f7630392d2d4542e09167ace852582aa2439ce8076632235fe474bfc4f8629",
+      "hash": "19f1645639f588e0859ac663967ff2eafe2bd9c423d4c3e0ef4755a97772c24d",
       "ledger_version": 29,
       "new_version": null,
       "payload": {
@@ -2532,7 +2632,7 @@
           "start": 18
         }
       },
-      "prev_hash": "6ba96dcdc62a07ad23361b966ff4be414caebd3089b1a51a95eb959c4688e4fb",
+      "prev_hash": "d6f3ea5e60e40095b54587be2ec3502709e47572da3543139bcf72385d1b2d41",
       "run_id": "scripted-soc",
       "seq": 29,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2548,7 +2648,7 @@
       "chunk_id": "chunk-4",
       "commitment_id": "D3",
       "event_id": "00000000-0000-4000-8000-000000000030",
-      "hash": "1f6272b209d1b8e37b7f70b623168fa58abce4046699d597d7f0f5f493828f7c",
+      "hash": "fa4c5214881132eaba139e362de95c349fda1d137cd3bbf31921735a6632dac5",
       "ledger_version": 30,
       "new_version": null,
       "payload": {
@@ -2563,7 +2663,7 @@
           "start": 38
         }
       },
-      "prev_hash": "f1f7630392d2d4542e09167ace852582aa2439ce8076632235fe474bfc4f8629",
+      "prev_hash": "19f1645639f588e0859ac663967ff2eafe2bd9c423d4c3e0ef4755a97772c24d",
       "run_id": "scripted-soc",
       "seq": 30,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2579,7 +2679,7 @@
       "chunk_id": "chunk-4",
       "commitment_id": "D5",
       "event_id": "00000000-0000-4000-8000-000000000031",
-      "hash": "8a70300ad4d0bfecce3205d0fa4a73f84bea84fd0dfbf693be894d3ef1b2a20f",
+      "hash": "27f5d69b107fd1636db28eb2e4e67a355b7d067930cffba05720498cbc0d7c79",
       "ledger_version": 31,
       "new_version": null,
       "payload": {
@@ -2594,7 +2694,7 @@
           "start": 0
         }
       },
-      "prev_hash": "1f6272b209d1b8e37b7f70b623168fa58abce4046699d597d7f0f5f493828f7c",
+      "prev_hash": "fa4c5214881132eaba139e362de95c349fda1d137cd3bbf31921735a6632dac5",
       "run_id": "scripted-soc",
       "seq": 31,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2610,7 +2710,7 @@
       "chunk_id": "chunk-4",
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000032",
-      "hash": "71392b99171e4397bc0b8643a133544bc434336f81b23d35449c609d1e7c8fa5",
+      "hash": "5d3f079da45575ff21e53bc01000b4a9c93d57da927e8e578526f4914ffb9359",
       "ledger_version": 32,
       "new_version": null,
       "payload": {
@@ -2674,7 +2774,7 @@
           ]
         }
       },
-      "prev_hash": "8a70300ad4d0bfecce3205d0fa4a73f84bea84fd0dfbf693be894d3ef1b2a20f",
+      "prev_hash": "27f5d69b107fd1636db28eb2e4e67a355b7d067930cffba05720498cbc0d7c79",
       "run_id": "scripted-soc",
       "seq": 32,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2690,29 +2790,32 @@
       "chunk_id": "chunk-4",
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000033",
-      "hash": "eda5e5908b49fab78599d4b744d1ad08ec337053a6b12c29a8352c04d7e78cf6",
+      "hash": "350bab97e6cd1b71d8481fbde7fb546f1e96a2925f0a7c3e112304b03a1b816e",
       "ledger_version": 33,
       "new_version": null,
       "payload": {
         "data": {
-          "accepted": true,
+          "accepted": false,
           "build_number": 1,
           "findings": [
             {
+              "brief_clause_ids": [],
+              "check_id": "76d66a31596ef654957063e328e94b569880f6b11b265770431dbb4f21d57dc9",
               "commitment_id": null,
               "detail": "No approved rendering for MUST",
               "end": null,
-              "outcome": "unknown",
+              "outcome": "held",
               "rule": "bcp14",
               "sentence_id": "9999-2-s03",
               "start": null,
-              "strength": "must"
+              "strength": "must",
+              "unknown_cause": "configuration"
             }
           ],
           "reason": "No approved rendering for MUST"
         }
       },
-      "prev_hash": "71392b99171e4397bc0b8643a133544bc434336f81b23d35449c609d1e7c8fa5",
+      "prev_hash": "5d3f079da45575ff21e53bc01000b4a9c93d57da927e8e578526f4914ffb9359",
       "run_id": "scripted-soc",
       "seq": 33,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2728,7 +2831,7 @@
       "chunk_id": "chunk-2",
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000034",
-      "hash": "dbcd03462efebcf5a4ccb82106b5a6e099d9181d3ddf706b713bab85fd639303",
+      "hash": "cdbcea14c916ec7747ec9a88add9f31c3133a11cfd041279ea33024db30e5d51",
       "ledger_version": 34,
       "new_version": null,
       "payload": {
@@ -2737,7 +2840,7 @@
           "path": "final_sweep"
         }
       },
-      "prev_hash": "eda5e5908b49fab78599d4b744d1ad08ec337053a6b12c29a8352c04d7e78cf6",
+      "prev_hash": "350bab97e6cd1b71d8481fbde7fb546f1e96a2925f0a7c3e112304b03a1b816e",
       "run_id": "scripted-soc",
       "seq": 34,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2753,7 +2856,7 @@
       "chunk_id": "chunk-2",
       "commitment_id": "D1",
       "event_id": "00000000-0000-4000-8000-000000000035",
-      "hash": "57cc6793909298b7a48a5c84eb7a6778b32b1ca40de5530b51dd99ce9b9a706a",
+      "hash": "98cfdc31d3037d74d084f11fbb1ce3ac1b77ba3f49cfb6bb1f457a05eeca182e",
       "ledger_version": 35,
       "new_version": null,
       "payload": {
@@ -2768,7 +2871,7 @@
           "start": 0
         }
       },
-      "prev_hash": "dbcd03462efebcf5a4ccb82106b5a6e099d9181d3ddf706b713bab85fd639303",
+      "prev_hash": "cdbcea14c916ec7747ec9a88add9f31c3133a11cfd041279ea33024db30e5d51",
       "run_id": "scripted-soc",
       "seq": 35,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2784,7 +2887,7 @@
       "chunk_id": "chunk-2",
       "commitment_id": "D2",
       "event_id": "00000000-0000-4000-8000-000000000036",
-      "hash": "e8d66b3c31720177624aeb05faeeb8d6d3526daaa2ac7a91f83d15242ca53fb1",
+      "hash": "291c376a1fbbcc38ed859e80f57acb463966050770e5dc5bdcc1be90ae248b2e",
       "ledger_version": 36,
       "new_version": null,
       "payload": {
@@ -2799,7 +2902,7 @@
           "start": 18
         }
       },
-      "prev_hash": "57cc6793909298b7a48a5c84eb7a6778b32b1ca40de5530b51dd99ce9b9a706a",
+      "prev_hash": "98cfdc31d3037d74d084f11fbb1ce3ac1b77ba3f49cfb6bb1f457a05eeca182e",
       "run_id": "scripted-soc",
       "seq": 36,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2815,7 +2918,7 @@
       "chunk_id": "chunk-2",
       "commitment_id": "D3",
       "event_id": "00000000-0000-4000-8000-000000000037",
-      "hash": "41fa949ecfa76a168cf0b72b8ba0b343876b10bb44e536754b97733cd9bbfbc9",
+      "hash": "da227c0a0789ed4248ad9c1fc984e27f4a2ec3d085a84bc0cfc3658c683bc5e0",
       "ledger_version": 37,
       "new_version": null,
       "payload": {
@@ -2830,7 +2933,7 @@
           "start": 38
         }
       },
-      "prev_hash": "e8d66b3c31720177624aeb05faeeb8d6d3526daaa2ac7a91f83d15242ca53fb1",
+      "prev_hash": "291c376a1fbbcc38ed859e80f57acb463966050770e5dc5bdcc1be90ae248b2e",
       "run_id": "scripted-soc",
       "seq": 37,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2846,7 +2949,7 @@
       "chunk_id": "chunk-2",
       "commitment_id": "D5",
       "event_id": "00000000-0000-4000-8000-000000000038",
-      "hash": "435e633841989c79c3302154d41a832fd0f3a8af8995fafbe94370cb7d814ea2",
+      "hash": "f5fb6b33fd55bf418eff8d0decad0183622cbfb470408ffd072f9b66bd635cb9",
       "ledger_version": 38,
       "new_version": null,
       "payload": {
@@ -2861,7 +2964,7 @@
           "start": 0
         }
       },
-      "prev_hash": "41fa949ecfa76a168cf0b72b8ba0b343876b10bb44e536754b97733cd9bbfbc9",
+      "prev_hash": "da227c0a0789ed4248ad9c1fc984e27f4a2ec3d085a84bc0cfc3658c683bc5e0",
       "run_id": "scripted-soc",
       "seq": 38,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2877,7 +2980,7 @@
       "chunk_id": "chunk-2",
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000039",
-      "hash": "73664a40f361d45762b575fd4f19c83465be9925f4721778e37cc4d3acf85705",
+      "hash": "1d377198cc3bbf4d24c6e306c64cd78cbf1ce977c7cc50dbb81755547f5a5f5b",
       "ledger_version": 39,
       "new_version": null,
       "payload": {
@@ -2941,7 +3044,7 @@
           ]
         }
       },
-      "prev_hash": "435e633841989c79c3302154d41a832fd0f3a8af8995fafbe94370cb7d814ea2",
+      "prev_hash": "f5fb6b33fd55bf418eff8d0decad0183622cbfb470408ffd072f9b66bd635cb9",
       "run_id": "scripted-soc",
       "seq": 39,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2957,29 +3060,32 @@
       "chunk_id": "chunk-2",
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000040",
-      "hash": "f824bd2bc4bda1a46fcee5d13be2da23057b93da647633e00299891f17e3f202",
+      "hash": "34e29d825c44cfd511e478c29911848c7076ce6715cc9eefacee0415a18e243a",
       "ledger_version": 40,
       "new_version": null,
       "payload": {
         "data": {
-          "accepted": true,
+          "accepted": false,
           "build_number": 2,
           "findings": [
             {
+              "brief_clause_ids": [],
+              "check_id": "07eff53911f47a8835da66917fbd35b2eee09d4471bf977422ca0dbd5d97a7fa",
               "commitment_id": null,
               "detail": "No approved rendering for MUST",
               "end": null,
-              "outcome": "unknown",
+              "outcome": "held",
               "rule": "bcp14",
               "sentence_id": "9999-1-s03",
               "start": null,
-              "strength": "must"
+              "strength": "must",
+              "unknown_cause": "configuration"
             }
           ],
           "reason": "No approved rendering for MUST"
         }
       },
-      "prev_hash": "73664a40f361d45762b575fd4f19c83465be9925f4721778e37cc4d3acf85705",
+      "prev_hash": "1d377198cc3bbf4d24c6e306c64cd78cbf1ce977c7cc50dbb81755547f5a5f5b",
       "run_id": "scripted-soc",
       "seq": 40,
       "time": "2026-11-18T00:00:00+00:00",
@@ -2995,7 +3101,7 @@
       "chunk_id": "chunk-3",
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000041",
-      "hash": "6f68fa9e89eb6cab2da9e3ce6d2f5c71248bb622cb7e5d3230a967157abd1387",
+      "hash": "e4a0adc32f7521190f5b4008fcec59a3775425bbfb25dd8df279bfb6306cff5b",
       "ledger_version": 41,
       "new_version": null,
       "payload": {
@@ -3004,7 +3110,7 @@
           "path": "final_sweep"
         }
       },
-      "prev_hash": "f824bd2bc4bda1a46fcee5d13be2da23057b93da647633e00299891f17e3f202",
+      "prev_hash": "34e29d825c44cfd511e478c29911848c7076ce6715cc9eefacee0415a18e243a",
       "run_id": "scripted-soc",
       "seq": 41,
       "time": "2026-11-18T00:00:00+00:00",
@@ -3020,7 +3126,7 @@
       "chunk_id": "chunk-3",
       "commitment_id": "D1",
       "event_id": "00000000-0000-4000-8000-000000000042",
-      "hash": "9478a10b214fe4d1deb4c45dad191fd56c9f2ccc88b6071ebabf4d17e9c7fce1",
+      "hash": "f3b6fe4aaf2cd48e36e3584092372b021e9ef8774701bade3325fc0ca97023c3",
       "ledger_version": 42,
       "new_version": null,
       "payload": {
@@ -3035,7 +3141,7 @@
           "start": 0
         }
       },
-      "prev_hash": "6f68fa9e89eb6cab2da9e3ce6d2f5c71248bb622cb7e5d3230a967157abd1387",
+      "prev_hash": "e4a0adc32f7521190f5b4008fcec59a3775425bbfb25dd8df279bfb6306cff5b",
       "run_id": "scripted-soc",
       "seq": 42,
       "time": "2026-11-18T00:00:00+00:00",
@@ -3051,7 +3157,7 @@
       "chunk_id": "chunk-3",
       "commitment_id": "D2",
       "event_id": "00000000-0000-4000-8000-000000000043",
-      "hash": "4bfcae41bd044eb126630c9b7cb4d488e38c10487d3488d90c0a86cb5dc4c9af",
+      "hash": "cc7900625d09ae9a45981f8f810e7ba0974e759fa60eeba5c762fa4ed10ea8b3",
       "ledger_version": 43,
       "new_version": null,
       "payload": {
@@ -3066,7 +3172,7 @@
           "start": 18
         }
       },
-      "prev_hash": "9478a10b214fe4d1deb4c45dad191fd56c9f2ccc88b6071ebabf4d17e9c7fce1",
+      "prev_hash": "f3b6fe4aaf2cd48e36e3584092372b021e9ef8774701bade3325fc0ca97023c3",
       "run_id": "scripted-soc",
       "seq": 43,
       "time": "2026-11-18T00:00:00+00:00",
@@ -3082,7 +3188,7 @@
       "chunk_id": "chunk-3",
       "commitment_id": "D3",
       "event_id": "00000000-0000-4000-8000-000000000044",
-      "hash": "9bc7e16a3a2f24101f27d436cc9eee67653e34ce650b44b8c82b127610972902",
+      "hash": "8b2c987c39bb305d5a3a07b1703fc7bffd5e4d95acaf860ead046136a199cb06",
       "ledger_version": 44,
       "new_version": null,
       "payload": {
@@ -3097,7 +3203,7 @@
           "start": 38
         }
       },
-      "prev_hash": "4bfcae41bd044eb126630c9b7cb4d488e38c10487d3488d90c0a86cb5dc4c9af",
+      "prev_hash": "cc7900625d09ae9a45981f8f810e7ba0974e759fa60eeba5c762fa4ed10ea8b3",
       "run_id": "scripted-soc",
       "seq": 44,
       "time": "2026-11-18T00:00:00+00:00",
@@ -3113,7 +3219,7 @@
       "chunk_id": "chunk-3",
       "commitment_id": "D5",
       "event_id": "00000000-0000-4000-8000-000000000045",
-      "hash": "0c4249530b5ff918c98bb518179c92fdd230fb3d392f8e6bdb4fa0ea7e468635",
+      "hash": "db70e8bfb2d18f5faee55576fc8e311fa4d0c5da5189f5f250081640ad8e7673",
       "ledger_version": 45,
       "new_version": null,
       "payload": {
@@ -3128,7 +3234,7 @@
           "start": 0
         }
       },
-      "prev_hash": "9bc7e16a3a2f24101f27d436cc9eee67653e34ce650b44b8c82b127610972902",
+      "prev_hash": "8b2c987c39bb305d5a3a07b1703fc7bffd5e4d95acaf860ead046136a199cb06",
       "run_id": "scripted-soc",
       "seq": 45,
       "time": "2026-11-18T00:00:00+00:00",
@@ -3144,7 +3250,7 @@
       "chunk_id": "chunk-3",
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000046",
-      "hash": "852ed740d10b2cf5e823c2f140f9c12d3f9663191eaa742baf71cd4866ab3f25",
+      "hash": "8ce9a8746de094c29843b4207292b2d4f4fcc74c3d9abdb3791402fe337227e6",
       "ledger_version": 46,
       "new_version": null,
       "payload": {
@@ -3208,7 +3314,7 @@
           ]
         }
       },
-      "prev_hash": "0c4249530b5ff918c98bb518179c92fdd230fb3d392f8e6bdb4fa0ea7e468635",
+      "prev_hash": "db70e8bfb2d18f5faee55576fc8e311fa4d0c5da5189f5f250081640ad8e7673",
       "run_id": "scripted-soc",
       "seq": 46,
       "time": "2026-11-18T00:00:00+00:00",
@@ -3224,29 +3330,32 @@
       "chunk_id": "chunk-3",
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000047",
-      "hash": "9edc7c94d2db1f255a769162f2faa1709a20b1335ec993319e8665c035c5b46d",
+      "hash": "843a999323577210476e09b24a6b31deef8bf0447313314999515984d0badd07",
       "ledger_version": 47,
       "new_version": null,
       "payload": {
         "data": {
-          "accepted": true,
+          "accepted": false,
           "build_number": 2,
           "findings": [
             {
+              "brief_clause_ids": [],
+              "check_id": "f95e8298370a7f02c007451ec41b98724fed9de6eca58a3388a92d04dab6292e",
               "commitment_id": null,
               "detail": "No approved rendering for MUST",
               "end": null,
-              "outcome": "unknown",
+              "outcome": "held",
               "rule": "bcp14",
               "sentence_id": "9999-2-s01",
               "start": null,
-              "strength": "must"
+              "strength": "must",
+              "unknown_cause": "configuration"
             }
           ],
           "reason": "No approved rendering for MUST"
         }
       },
-      "prev_hash": "852ed740d10b2cf5e823c2f140f9c12d3f9663191eaa742baf71cd4866ab3f25",
+      "prev_hash": "8ce9a8746de094c29843b4207292b2d4f4fcc74c3d9abdb3791402fe337227e6",
       "run_id": "scripted-soc",
       "seq": 47,
       "time": "2026-11-18T00:00:00+00:00",
@@ -3262,7 +3371,7 @@
       "chunk_id": "chunk-1",
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000048",
-      "hash": "28fc5b749670f157e5c3a4da8e0af4bf5f01a32ffde129918b45732dbbc5aa91",
+      "hash": "75cf4685bfc225d4756f85d67046e60e967b6782f85b5681b43747deb3e9a9d9",
       "ledger_version": 48,
       "new_version": null,
       "payload": {
@@ -3273,7 +3382,7 @@
           "reason": "gate checks passed"
         }
       },
-      "prev_hash": "9edc7c94d2db1f255a769162f2faa1709a20b1335ec993319e8665c035c5b46d",
+      "prev_hash": "843a999323577210476e09b24a6b31deef8bf0447313314999515984d0badd07",
       "run_id": "scripted-soc",
       "seq": 48,
       "time": "2026-11-18T00:00:00+00:00",
@@ -3289,29 +3398,32 @@
       "chunk_id": "chunk-2",
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000049",
-      "hash": "03e24b88f8ed609c3589b01e02adbec2483ecac98e4170747978d854997c5545",
+      "hash": "3af9691306e796b398afb61ba89bb519ccbaf01425397e66de3ab9747a9a9952",
       "ledger_version": 49,
       "new_version": null,
       "payload": {
         "data": {
-          "accepted": true,
+          "accepted": false,
           "build_number": 2,
           "findings": [
             {
+              "brief_clause_ids": [],
+              "check_id": "07eff53911f47a8835da66917fbd35b2eee09d4471bf977422ca0dbd5d97a7fa",
               "commitment_id": null,
               "detail": "No approved rendering for MUST",
               "end": null,
-              "outcome": "unknown",
+              "outcome": "held",
               "rule": "bcp14",
               "sentence_id": "9999-1-s03",
               "start": null,
-              "strength": "must"
+              "strength": "must",
+              "unknown_cause": "configuration"
             }
           ],
           "reason": "No approved rendering for MUST"
         }
       },
-      "prev_hash": "28fc5b749670f157e5c3a4da8e0af4bf5f01a32ffde129918b45732dbbc5aa91",
+      "prev_hash": "75cf4685bfc225d4756f85d67046e60e967b6782f85b5681b43747deb3e9a9d9",
       "run_id": "scripted-soc",
       "seq": 49,
       "time": "2026-11-18T00:00:00+00:00",
@@ -3327,29 +3439,32 @@
       "chunk_id": "chunk-3",
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000050",
-      "hash": "4e16e5a18f649c1c9dbcd20a4d280a10bb4c087b4a748fd094116a04736841db",
+      "hash": "e01f8eb874297edb684aa5d1e4ca4fa6442ef5e3d1c897c7e90316ec05caa6fd",
       "ledger_version": 50,
       "new_version": null,
       "payload": {
         "data": {
-          "accepted": true,
+          "accepted": false,
           "build_number": 2,
           "findings": [
             {
+              "brief_clause_ids": [],
+              "check_id": "f95e8298370a7f02c007451ec41b98724fed9de6eca58a3388a92d04dab6292e",
               "commitment_id": null,
               "detail": "No approved rendering for MUST",
               "end": null,
-              "outcome": "unknown",
+              "outcome": "held",
               "rule": "bcp14",
               "sentence_id": "9999-2-s01",
               "start": null,
-              "strength": "must"
+              "strength": "must",
+              "unknown_cause": "configuration"
             }
           ],
           "reason": "No approved rendering for MUST"
         }
       },
-      "prev_hash": "03e24b88f8ed609c3589b01e02adbec2483ecac98e4170747978d854997c5545",
+      "prev_hash": "3af9691306e796b398afb61ba89bb519ccbaf01425397e66de3ab9747a9a9952",
       "run_id": "scripted-soc",
       "seq": 50,
       "time": "2026-11-18T00:00:00+00:00",
@@ -3365,31 +3480,184 @@
       "chunk_id": "chunk-4",
       "commitment_id": null,
       "event_id": "00000000-0000-4000-8000-000000000051",
-      "hash": "fe285315a26c1eda9fd03f3a35b906ef38ecff2ec29d9e1ab0186bcbb393df68",
+      "hash": "1e3d76176b3f7f78bf9acbdeeb7296f371916323d8e92e0cefb954cb38473d6f",
       "ledger_version": 51,
       "new_version": null,
       "payload": {
         "data": {
-          "accepted": true,
+          "accepted": false,
           "build_number": 1,
           "findings": [
             {
+              "brief_clause_ids": [],
+              "check_id": "76d66a31596ef654957063e328e94b569880f6b11b265770431dbb4f21d57dc9",
               "commitment_id": null,
               "detail": "No approved rendering for MUST",
               "end": null,
-              "outcome": "unknown",
+              "outcome": "held",
               "rule": "bcp14",
               "sentence_id": "9999-2-s03",
               "start": null,
-              "strength": "must"
+              "strength": "must",
+              "unknown_cause": "configuration"
             }
           ],
           "reason": "No approved rendering for MUST"
         }
       },
-      "prev_hash": "4e16e5a18f649c1c9dbcd20a4d280a10bb4c087b4a748fd094116a04736841db",
+      "prev_hash": "e01f8eb874297edb684aa5d1e4ca4fa6442ef5e3d1c897c7e90316ec05caa6fd",
       "run_id": "scripted-soc",
       "seq": 51,
+      "time": "2026-11-18T00:00:00+00:00",
+      "type": "GateDecision"
+    },
+    {
+      "actor": {
+        "agent": "executor",
+        "model": "new-fake",
+        "role": "executor"
+      },
+      "base_version": null,
+      "chunk_id": "chunk-1",
+      "commitment_id": null,
+      "event_id": "00000000-0000-4000-8000-000000000052",
+      "hash": "f8c9ea3670438d041f45fab540be603461052d4a8d8ca0caeb23ca65ed8c87ce",
+      "ledger_version": 52,
+      "new_version": null,
+      "payload": {
+        "data": {
+          "accepted": true,
+          "build_number": 1,
+          "findings": [],
+          "reason": "gate checks passed"
+        }
+      },
+      "prev_hash": "1e3d76176b3f7f78bf9acbdeeb7296f371916323d8e92e0cefb954cb38473d6f",
+      "run_id": "scripted-soc",
+      "seq": 52,
+      "time": "2026-11-18T00:00:00+00:00",
+      "type": "GateDecision"
+    },
+    {
+      "actor": {
+        "agent": "executor",
+        "model": "new-fake",
+        "role": "executor"
+      },
+      "base_version": null,
+      "chunk_id": "chunk-2",
+      "commitment_id": null,
+      "event_id": "00000000-0000-4000-8000-000000000053",
+      "hash": "be1c660ce8bef6729cf1048e70a03e268cbd4cca0e26115b541b33776b8ed660",
+      "ledger_version": 53,
+      "new_version": null,
+      "payload": {
+        "data": {
+          "accepted": false,
+          "build_number": 2,
+          "findings": [
+            {
+              "brief_clause_ids": [],
+              "check_id": "07eff53911f47a8835da66917fbd35b2eee09d4471bf977422ca0dbd5d97a7fa",
+              "commitment_id": null,
+              "detail": "No approved rendering for MUST",
+              "end": null,
+              "outcome": "held",
+              "rule": "bcp14",
+              "sentence_id": "9999-1-s03",
+              "start": null,
+              "strength": "must",
+              "unknown_cause": "configuration"
+            }
+          ],
+          "reason": "No approved rendering for MUST"
+        }
+      },
+      "prev_hash": "f8c9ea3670438d041f45fab540be603461052d4a8d8ca0caeb23ca65ed8c87ce",
+      "run_id": "scripted-soc",
+      "seq": 53,
+      "time": "2026-11-18T00:00:00+00:00",
+      "type": "GateDecision"
+    },
+    {
+      "actor": {
+        "agent": "executor",
+        "model": "new-fake",
+        "role": "executor"
+      },
+      "base_version": null,
+      "chunk_id": "chunk-3",
+      "commitment_id": null,
+      "event_id": "00000000-0000-4000-8000-000000000054",
+      "hash": "eefec247e4f256fb710a25081b7b2d35874f5cc255e509763a67290510edddf8",
+      "ledger_version": 54,
+      "new_version": null,
+      "payload": {
+        "data": {
+          "accepted": false,
+          "build_number": 2,
+          "findings": [
+            {
+              "brief_clause_ids": [],
+              "check_id": "f95e8298370a7f02c007451ec41b98724fed9de6eca58a3388a92d04dab6292e",
+              "commitment_id": null,
+              "detail": "No approved rendering for MUST",
+              "end": null,
+              "outcome": "held",
+              "rule": "bcp14",
+              "sentence_id": "9999-2-s01",
+              "start": null,
+              "strength": "must",
+              "unknown_cause": "configuration"
+            }
+          ],
+          "reason": "No approved rendering for MUST"
+        }
+      },
+      "prev_hash": "be1c660ce8bef6729cf1048e70a03e268cbd4cca0e26115b541b33776b8ed660",
+      "run_id": "scripted-soc",
+      "seq": 54,
+      "time": "2026-11-18T00:00:00+00:00",
+      "type": "GateDecision"
+    },
+    {
+      "actor": {
+        "agent": "executor",
+        "model": "new-fake",
+        "role": "executor"
+      },
+      "base_version": null,
+      "chunk_id": "chunk-4",
+      "commitment_id": null,
+      "event_id": "00000000-0000-4000-8000-000000000055",
+      "hash": "a8743abc7c6f1e0a69dbe0233ce0e0c2ae14cccaacda31307bf2f72915bd9d91",
+      "ledger_version": 55,
+      "new_version": null,
+      "payload": {
+        "data": {
+          "accepted": false,
+          "build_number": 1,
+          "findings": [
+            {
+              "brief_clause_ids": [],
+              "check_id": "76d66a31596ef654957063e328e94b569880f6b11b265770431dbb4f21d57dc9",
+              "commitment_id": null,
+              "detail": "No approved rendering for MUST",
+              "end": null,
+              "outcome": "held",
+              "rule": "bcp14",
+              "sentence_id": "9999-2-s03",
+              "start": null,
+              "strength": "must",
+              "unknown_cause": "configuration"
+            }
+          ],
+          "reason": "No approved rendering for MUST"
+        }
+      },
+      "prev_hash": "eefec247e4f256fb710a25081b7b2d35874f5cc255e509763a67290510edddf8",
+      "run_id": "scripted-soc",
+      "seq": 55,
       "time": "2026-11-18T00:00:00+00:00",
       "type": "GateDecision"
     }
@@ -3398,8 +3666,8 @@
   "run": {
     "chunk_id_base": 1,
     "episode_id": "toy",
-    "final_sequence": 51,
-    "head_hash": "fe285315a26c1eda9fd03f3a35b906ef38ecff2ec29d9e1ab0186bcbb393df68",
+    "final_sequence": 55,
+    "head_hash": "a8743abc7c6f1e0a69dbe0233ce0e0c2ae14cccaacda31307bf2f72915bd9d91",
     "label": "Scripted fixture",
     "run_id": "scripted-soc"
   },
@@ -3415,7 +3683,7 @@
   "summary": {
     "chunks": 4,
     "decisions": 5,
-    "events": 51,
+    "events": 55,
     "final_stale": 0,
     "gate_blocks": 0,
     "revisions": 2,

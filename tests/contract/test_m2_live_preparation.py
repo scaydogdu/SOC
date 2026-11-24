@@ -15,7 +15,7 @@ FILES = sorted((ROOT / "config/m2-live").glob("*.yaml"))
 
 
 @pytest.mark.parametrize("condition_file", FILES, ids=lambda path: path.stem)
-def test_proposed_live_condition_completes_script_and_keeps_private_key_out_of_prompts(
+def test_proposed_live_condition_keeps_unresolved_checks_unverified_and_private_key_out_of_prompts(
     tmp_path, condition_file
 ):
     condition = SOCCondition.model_validate(yaml.safe_load(condition_file.read_text()))
@@ -48,7 +48,7 @@ def test_proposed_live_condition_completes_script_and_keeps_private_key_out_of_p
             agreement,
         )
     )
-    assert result["status"] == "completed"
+    assert result["status"] == "unverified" and result["unverified_must"] > 0
     assert result["physical_calls"] == (
         13 if condition.run.resolution == "principal_only" else 19
     )

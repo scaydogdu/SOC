@@ -58,7 +58,18 @@ class PlanningProvider:
     async def generate(self, request: ProviderRequest) -> Reply:
         context = json.loads(request.messages[1].content)
         schema = request.schema_name
-        if schema == "DraftReply":
+        if schema == "MeaningReply":
+            response = {
+                "verdict": "compliant",
+                "rationale": "Scripted planning outcome, not a measured semantic judgment",
+                "evidence": [
+                    {
+                        "reference": f"output:{context['source']['id']}",
+                        "quote": context["translation"],
+                    }
+                ],
+            }
+        elif schema == "DraftReply":
             rows = []
             manifest = []
             for sentence in context["source"]:
@@ -207,7 +218,7 @@ async def estimate_condition(
         team=condition.team,
         agreement=agreement,
     )
-    if result.status != "completed":
+    if result.status not in {"completed", "unverified"}:
         raise ValueError(f"scripted condition ended {result.status}")
     records = [record for provider in providers.values() for record in provider.records]
     initial_reservation = sum(int(row["reservation_nanos"]) for row in records)
@@ -244,6 +255,10 @@ async def estimate_condition(
         "mode": condition.run.resolution,
         "effort": condition.run.effort,
         "status": result.status,
+        "meaning_model": config.experiment.meaning_model,
+        "unverified_must": json.loads((run_dir / "unknowns.json").read_text())[
+            "unverified"
+        ],
         "physical_calls": len(records),
         "schemas": dict(sorted(Counter(str(row["schema"]) for row in records).items())),
         "assumed_input_tokens": sum(int(row["input_tokens"]) for row in records),

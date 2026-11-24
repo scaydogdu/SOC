@@ -2,11 +2,19 @@
 
 import json
 import re
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Annotated, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt, StringConstraints
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PositiveInt,
+    StringConstraints,
+    model_validator,
+)
 
 SENTENCE_ID = re.compile(
     r"[1-9][0-9]*-(?P<section>(?:[1-9][0-9]*|[A-Z]|boilerplate|toc)(?:\.[1-9][0-9]*)*)-s(?:0[1-9]|[1-9][0-9]+)"
@@ -34,8 +42,32 @@ class Clause(Record):
     text: str
 
 
+class ModalRendering(Record):
+    keyword: NonBlank
+    value: NonBlank
+    brief_clause_id: NonBlank
+    strength: Literal["must", "should", "may"] = "must"
+
+
 class Brief(Record):
     clauses: list[Clause]
+    normative: list[ModalRendering] = Field(default_factory=list)
+    fixture: bool = False
+
+    def public_data(self) -> dict[str, object]:
+        """Prompt view: active wording only, with no fixture metadata."""
+        data: dict[str, object] = {
+            "clauses": [row.model_dump(mode="json") for row in self.clauses]
+        }
+        active = {row.id for row in self.clauses}
+        normative = [
+            row.model_dump(mode="json")
+            for row in self.normative
+            if row.brief_clause_id in active
+        ]
+        if normative:
+            data["normative"] = normative
+        return data
 
 
 class Chunk(Record):
@@ -49,6 +81,25 @@ class Approval(Record):
     kind: Literal["term", "non_lexical", "scope_limited"]
     chunk: PositiveInt
     brief_clause_ids: list[str]
+
+    @model_validator(mode="before")
+    @classmethod
+    def named_checkability_error(cls, data: object) -> object:
+        if isinstance(data, dict) and (
+            not isinstance(data.get("value"), str) or not data["value"].strip()
+        ):
+            raise ValueError(
+                f"decision {data.get('decision_id', '?')}: missing checkable wording"
+            )
+        if isinstance(data, dict) and data.get("kind") not in {
+            "term",
+            "non_lexical",
+            "scope_limited",
+        }:
+            raise ValueError(
+                f"decision {data.get('decision_id', '?')}: no deterministic checker for rule kind {data.get('kind')!r}"
+            )
+        return data
 
 
 class Revision(Record):
@@ -79,7 +130,12 @@ class EpisodeError(ValueError):
     """A package violates a named validation rule."""
 
 
-def validate_runtime(episode: Episode) -> Episode:
+def validate_runtime(
+    episode: Episode,
+    *,
+    require_checkable: bool = True,
+    normative: Sequence[object] = (),
+) -> Episode:
     """Check the relationships among the three public files."""
     events = episode.events
     sentence_ids: set[str] = set()
@@ -124,6 +180,10 @@ def validate_runtime(episode: Episode) -> Episode:
         raise EpisodeError(
             "event positions: expected in-range chunks and executor change before brief change"
         )
+    if require_checkable and not episode.brief.fixture:
+        from soc.enforce.configuration import validate_checkability
+
+        validate_checkability(episode, normative=normative)
     return episode
 
 

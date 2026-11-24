@@ -4,12 +4,23 @@ from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Literal, Protocol, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from soc.enforce.checker import Checker, Finding, NormativeRendering
+from soc.enforce.checker import Checker, Finding, NormativeRendering, RuleID
+from soc.enforce.lemmatizer import Span
+from soc.enforce.meaning import (
+    CheckAssessment,
+    MeaningResolver,
+    MeaningStore,
+    MeaningUnavailable,
+    ModelMeaningResolver,
+    apply_resolution,
+    assess,
+)
 from soc.episode import Brief, Episode, NonBlank, load_runtime, validate_runtime
+from soc.ledger.models import GateFinding, HeldResolution
 from soc.memory import ChunkInput, ChunkOutput, DecisionChange, Memory, PromptContext
 from soc.orchestrator.journal import Attempt, Journal, open_journal
 from soc.orchestrator.prompts import (
@@ -26,7 +37,9 @@ from soc.providers.client import (
 )
 from soc.providers.models import Outcome, ProviderRequestError, Request, Response
 
-type RunStatus = Literal["running", "completed", "budget_exhausted", "failed"]
+type RunStatus = Literal[
+    "running", "completed", "budget_exhausted", "failed", "unverified", "blocked"
+]
 
 
 class ExperimentSettings(BaseModel):
@@ -37,6 +50,9 @@ class ExperimentSettings(BaseModel):
     max_repair_rounds: int = Field(default=2, ge=0)
     max_output_tokens: int = Field(default=4096, gt=0)
     normative: tuple[NormativeRendering, ...] = ()
+    require_checkable: bool = True
+    meaning_model: str | None = None
+    unknown_rate_limit: float = Field(default=0.01, ge=0, le=1, allow_inf_nan=False)
 
 
 class RunSpec(BaseModel):
@@ -119,6 +135,7 @@ async def run_episode(
     worker: ChunkWorker | None = None,
     prompts_dir: Path = DEFAULT_PROMPTS,
     triad_worker: RAGTriadWorker | None = None,
+    meaning_resolver: MeaningResolver | None = None,
 ) -> RunResult:
     """Run or resume using a fresh memory instance and model client for this run."""
     if (
@@ -127,13 +144,28 @@ async def run_episode(
         or client.run_dir != run_dir.resolve()
     ):
         raise ValueError("runner requires a fresh model client for this run ID")
-    episode = validate_runtime(load_runtime(episode_dir))
+    episode = validate_runtime(
+        load_runtime(episode_dir),
+        require_checkable=experiment.require_checkable,
+        normative=experiment.normative,
+    )
+    if meaning_resolver is None and experiment.meaning_model is not None:
+        meaning_resolver = ModelMeaningResolver(
+            client,
+            experiment.meaning_model,
+            spec.effort,
+            spec.replicate,
+            experiment.max_output_tokens,
+        )
     chunks = _chunks(episode)
     prompts = TranslationPrompts(prompts_dir)
     manifest = {
         **spec.model_dump(mode="json"),
         "episode_sha256": digest(episode.model_dump_json()),
         "experiment": experiment.model_dump(mode="json"),
+        "meaning_resolver": None
+        if meaning_resolver is None
+        else meaning_resolver.actor.model_dump(mode="json"),
         "template_hashes": prompts.hashes(),
         "model_client_limits": client.limits.model_dump(mode="json"),
         "model_prices": {
@@ -151,7 +183,11 @@ async def run_episode(
     )
     resuming = (run_dir / "journal.sqlite").is_file()
     with open_journal(run_dir, digest(manifest_json)) as journal:
-        if triad_worker is not None and resuming:
+        usage_restored = resuming and (
+            triad_worker is not None
+            or isinstance(meaning_resolver, ModelMeaningResolver)
+        )
+        if usage_restored:
             client.restore_recorded_usage()
         execution = _Execution(
             spec,
@@ -163,11 +199,24 @@ async def run_episode(
             prompts,
             journal,
             triad_worker,
+            MeaningStore(run_dir / "meaning.sqlite"),
+            meaning_resolver,
+            usage_restored,
         )
         if not (run_dir / "run.json").exists():
             execution.publish(run_dir, manifest, "running", chunks)
         try:
             outcome = await execution.run(episode, chunks)
+        except MeaningUnavailable as error:
+            return execution.publish(
+                run_dir,
+                manifest,
+                "budget_exhausted"
+                if error.outcome is Outcome.BUDGET_EXHAUSTED
+                else "failed",
+                chunks,
+                error.outcome,
+            )
         except (CacheMiss, ProviderRequestError) as error:
             failure = (
                 Outcome.CACHE_MISS
@@ -179,6 +228,10 @@ async def run_episode(
         status: RunStatus = (
             "completed"
             if outcome is Outcome.OK
+            else "unverified"
+            if outcome is Outcome.UNVERIFIED
+            else "blocked"
+            if outcome is Outcome.HELD_VIOLATION
             else (
                 "budget_exhausted" if outcome is Outcome.BUDGET_EXHAUSTED else "failed"
             )
@@ -198,6 +251,9 @@ class _Execution:
         prompts: TranslationPrompts,
         journal: Journal,
         triad_worker: RAGTriadWorker | None,
+        meaning: MeaningStore,
+        meaning_resolver: MeaningResolver | None,
+        usage_restored: bool,
     ) -> None:
         self.spec = spec
         self.experiment = experiment
@@ -217,9 +273,56 @@ class _Execution:
         self.violations: list[dict[str, object]] = []
         self.events: list[dict[str, object]] = []
         self.attempts: list[Attempt] = []
+        self.meaning, self.meaning_resolver = meaning, meaning_resolver
+        self.usage_restored = usage_restored
+        # Late resolutions must not affect earlier drafting when replaying the schedule.
+        self.resolutions: dict[str, HeldResolution] = {}
+        self.resolution_events: set[str] = set()
 
     def _check(self, chunk: ChunkInput, output: ChunkOutput) -> tuple[Finding, ...]:
-        return self.checker.check(
+        findings, assessment = self._assessment(chunk, output)
+        self.meaning.observe(
+            assessment.context_id, assessment.must_checks, assessment.held
+        )
+        checks = {row.check_id: row for row in assessment.held}
+        effective = [
+            apply_resolution(
+                row, checks[row.check_id], self.resolutions.get(row.check_id)
+            )
+            if row.check_id is not None and row.check_id in checks
+            else row
+            for row in findings
+        ]
+        return tuple(
+            Finding(
+                cast(RuleID, row.rule),
+                row.sentence_id or "",
+                row.detail,
+                span=None
+                if row.start is None or row.end is None
+                else Span(row.start, row.end),
+                decision_id=row.commitment_id,
+                brief_clause_ids=tuple(row.brief_clause_ids),
+                strength=row.strength or "must",
+                status=(
+                    "unknown"
+                    if row.outcome in {"unknown", "held"}
+                    else "compliant"
+                    if row.check_id is not None and row.outcome == "allowed"
+                    else "violation"
+                ),
+                unknown_cause=row.unknown_cause,
+            )
+            for row in effective
+        )
+
+    def _assessment(
+        self, chunk: ChunkInput, output: ChunkOutput
+    ) -> tuple[list[GateFinding], CheckAssessment]:
+        return assess(
+            self.checker,
+            f"chunk-{chunk.position}",
+            self.rounds.get(chunk.position, 0) + 1,
             chunk.sentences,
             output,
             self.brief,
@@ -287,7 +390,7 @@ class _Execution:
                 estimated_cost_usd=response.estimated_cost_usd,
             )
             self.journal.complete(call_id, recorded)
-        elif self.triad_worker is None:
+        elif self.triad_worker is None and not self.usage_restored:
             self.client.tokens += recorded.input_tokens + recorded.output_tokens
         if self.triad_worker is not None:
             self.triad_worker.remember(recorded)
@@ -364,7 +467,7 @@ class _Execution:
         change = episode.events.brief_change
         clauses = {clause.id: clause for clause in self.brief.clauses}
         clauses.update({clause.id: clause for clause in change.clauses})
-        self.brief = Brief(clauses=list(clauses.values()))
+        self.brief = self.brief.model_copy(update={"clauses": list(clauses.values())})
         self.events.append(
             {
                 "event": "brief_changed",
@@ -432,6 +535,50 @@ class _Execution:
                 outcome = await self._build(chunks[position - 1], revisions)
                 if outcome is not Outcome.OK:
                     return outcome
+        return await self._resolve_held(chunks)
+
+    async def _resolve_held(self, chunks: tuple[ChunkInput, ...]) -> Outcome:
+        for _ in range(self.experiment.max_repair_rounds + 2):
+            repaired = False
+            for position, output in list(sorted(self.outputs.items())):
+                chunk = chunks[position - 1]
+                _, assessment = self._assessment(chunk, output)
+                self.meaning.observe(
+                    assessment.context_id, assessment.must_checks, assessment.held
+                )
+                violation = False
+                for check in assessment.held:
+                    result = await self.meaning.resolve(check, self.meaning_resolver)
+                    if result is not None:
+                        self.resolutions[result.check_id] = result
+                        violation |= result.verdict == "violation"
+                        if result.check_id not in self.resolution_events:
+                            self.events.append(
+                                {
+                                    "event": "HeldResolved",
+                                    **result.model_dump(mode="json"),
+                                }
+                            )
+                            self.resolution_events.add(result.check_id)
+                if violation:
+                    before = self.rounds[position]
+                    outcome = await self._build(chunk)
+                    if outcome is not Outcome.OK:
+                        return outcome
+                    repaired |= self.rounds[position] > before
+            if not repaired:
+                break
+        final = [
+            finding
+            for position, output in self.outputs.items()
+            for finding in self._check(chunks[position - 1], output)
+        ]
+        if any(
+            row.status == "violation" and row.unknown_cause is not None for row in final
+        ):
+            return Outcome.HELD_VIOLATION
+        if any(row.status == "unknown" and row.strength == "must" for row in final):
+            return Outcome.UNVERIFIED
         return Outcome.OK
 
     def publish(
@@ -442,18 +589,27 @@ class _Execution:
         chunks: tuple[ChunkInput, ...],
         outcome: Outcome | None = None,
     ) -> RunResult:
+        meaning_usage = self.meaning.usage(self.meaning_resolver)
         result = RunResult(
             status,
             len(self.outputs),
-            sum(attempt.input_tokens for attempt in self.attempts),
-            sum(attempt.output_tokens for attempt in self.attempts),
-            sum(attempt.estimated_cost_usd for attempt in self.attempts),
+            sum(attempt.input_tokens for attempt in self.attempts)
+            + meaning_usage.input_tokens,
+            sum(attempt.output_tokens for attempt in self.attempts)
+            + meaning_usage.output_tokens,
+            sum(attempt.estimated_cost_usd for attempt in self.attempts)
+            + meaning_usage.estimated_cost_usd,
         )
         final = [
             {
                 "chunk": position,
                 "findings": [
                     asdict(finding)
+                    | (
+                        {"status": "unverified"}
+                        if finding.status == "unknown" and finding.strength == "must"
+                        else {}
+                    )
                     for finding in self._check(chunks[position - 1], output)
                 ],
             }
@@ -469,6 +625,37 @@ class _Execution:
             "final_findings.jsonl": final,
             "events.jsonl": self.events,
         }
+        _write(
+            directory,
+            "unknowns.json",
+            json_text(
+                {
+                    "condition": self.spec.condition,
+                    "episode_id": self.spec.episode_id,
+                    "run_id": self.spec.run_id,
+                    **self.meaning.report(
+                        limit=self.experiment.unknown_rate_limit,
+                        unverified_final=sum(
+                            finding.status == "unknown" and finding.strength == "must"
+                            for position, output in self.outputs.items()
+                            for finding in self._check(chunks[position - 1], output)
+                        ),
+                    ),
+                }
+            )
+            + "\n",
+        )
+        _write(
+            directory,
+            "assembly.json",
+            json_text(
+                {
+                    "accepted": status == "completed",
+                    "status": status,
+                }
+            )
+            + "\n",
+        )
         for name, rows in reports.items():
             _write(directory, name, _lines(rows))
         _write(
@@ -478,6 +665,7 @@ class _Execution:
                 {
                     **manifest,
                     **asdict(result),
+                    "meaning_usage": asdict(meaning_usage),
                     "outcome": outcome,
                     "tokens": result.input_tokens + result.output_tokens,
                     "prompt_hashes": {

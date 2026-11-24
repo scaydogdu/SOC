@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from soc.baseline.memory import RAGMemory
 from soc.baseline.retrieval import BGEM3Embedder, Embedder, RetrievalConfig
 from soc.enforce.checker import Checker
+from soc.episode import load_runtime, validate_runtime
 from soc.ledger.models import Actor
 from soc.orchestrator.journal import run_lock
 from soc.orchestrator.ledger_runner import LedgerRunResult, LedgerRunSpec
@@ -104,6 +105,11 @@ class LiveConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_campaign(self) -> "LiveConfig":
+        if (
+            self.experiment.meaning_model is not None
+            and self.experiment.meaning_model not in self.models
+        ):
+            raise ValueError("meaning-check model must be in the configured roster")
         if {self.toy.initial_model, self.toy.successor_model} - self.models.keys():
             raise ValueError("toy models must be in the configured roster")
         for model in self.models.values():
@@ -397,6 +403,11 @@ async def run_live_toy(
     *,
     routes: Mapping[str, Route] | None,
 ) -> bool:
+    validate_runtime(
+        load_runtime(episode),
+        require_checkable=config.experiment.require_checkable,
+        normative=config.experiment.normative,
+    )
     spec = RunSpec(
         run_id=f"m1-live-toy-{config.fingerprint()[:16]}",
         condition="rag",
@@ -413,7 +424,12 @@ async def run_live_toy(
             config,
             root,
             routes,
-            {config.toy.initial_model, config.toy.successor_model},
+            {config.toy.initial_model, config.toy.successor_model}
+            | (
+                {config.experiment.meaning_model}
+                if config.experiment.meaning_model is not None
+                else set()
+            ),
             config.toy.effort,
         )
         guard = campaign_spend(config, root)
@@ -476,6 +492,11 @@ async def run_live_soc(
     routes: Mapping[str, Route] | None,
 ) -> LedgerRunResult | RunResult:
     """Use the existing campaign preflight, response cache, and spending guard."""
+    validate_runtime(
+        load_runtime(episode),
+        require_checkable=config.experiment.require_checkable,
+        normative=config.experiment.normative,
+    )
     spec, team = condition.run, condition.team
     if routes is not None:
         require_probes(
@@ -487,7 +508,12 @@ async def run_live_soc(
                 spec.successor_model,
                 team.peer_model,
                 team.reviewer_model,
-            },
+            }
+            | (
+                {config.experiment.meaning_model}
+                if config.experiment.meaning_model is not None
+                else set()
+            ),
             spec.effort,
         )
     principal = PrincipalSimulator(

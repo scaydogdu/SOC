@@ -115,7 +115,7 @@ def test_paired_model_arms_measure_brief_change_repair_selection(tmp_path):
         )
 
     for arm in ("rag", "soc"):
-        assert asyncio.run(run(arm)).status == "completed"
+        assert asyncio.run(run(arm)).status == "unverified"
 
     report = paired_repair_precision(validate(TOY), tmp_path / "rag", tmp_path / "soc")
     assert report["unit"] == "decision_chunk"

@@ -25,7 +25,7 @@ class RecordedLedger:
 
 def read_events(path: Path, episode: Episode) -> RecordedLedger:
     """Verify a consistent read snapshot and retain event types unknown to this reader."""
-    episode = validate_runtime(episode)
+    episode = validate_runtime(episode, require_checkable=False)
     uri = path.resolve().as_uri() + "?mode=ro"
     with closing(sqlite3.connect(uri, uri=True)) as db:
         db.row_factory = sqlite3.Row

@@ -1,3 +1,4 @@
+fixture: true
 clauses:
 - id: B1
   text: Translate for Turkish protocol implementers and preserve normative force.

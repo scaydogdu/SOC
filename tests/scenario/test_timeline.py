@@ -81,7 +81,7 @@ def create_toy_run(directory, monkeypatch):
             worker=worker,
         )
     )
-    assert result.status == "completed"
+    assert result.status == "unverified"
     manifest = directory / "run.json"
     data = json.loads(manifest.read_text())
     manifest.write_text(json.dumps(data | {"scripted": True}))
@@ -153,7 +153,10 @@ def test_timeline_scripted_toy_golden_round_trip_and_read_only(
             }
         ),
         "gate_blocks": sum(
-            e["type"] == "GateDecision" and not e["payload"]["data"]["accepted"]
+            e["type"] == "GateDecision"
+            and any(
+                row["outcome"] == "block" for row in e["payload"]["data"]["findings"]
+            )
             for e in events
         ),
         "final_stale": 0,

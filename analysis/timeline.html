@@ -63,6 +63,7 @@ button:focus-visible, .scroll:focus-visible { outline: 2px solid var(--accent); 
 .badge { display: inline-block; border: 1px solid transparent; border-radius: 4px; padding: 3px 5px; font: 600 11px/1.25 var(--mono); margin: 2px 3px 2px 0 }
 .badge.current { color: var(--good); background: var(--good-bg) }
 .badge.stale, .badge.label { color: var(--warn); background: var(--warn-bg) }
+.badge.held { color: var(--warn); background: var(--warn-bg) }
 .badge.blocked { color: var(--bad); background: var(--bad-bg) }
 .badge.pending { color: var(--muted); background: var(--sunk) }
 .badge.latest { border-color: currentColor }
@@ -114,7 +115,7 @@ button:focus-visible, .scroll:focus-visible { outline: 2px solid var(--accent); 
       </div>
       <div class="legend small">
         <span class="badge current">Current</span><span class="badge stale">Stale</span>
-        <span class="badge blocked">Blocked</span><span class="badge pending latest">Last build using this decision</span>
+        <span class="badge blocked">Blocked</span><span class="badge held">Held</span><span class="badge pending latest">Last build using this decision</span>
       </div>
     </section>
     <aside class="panel detail" id="detail" aria-live="polite"></aside>
@@ -168,7 +169,7 @@ function describe(e) {
   const d = dataOf(e);
   switch (e.type) {
     case "ChunkBuilt": return (e.chunk_id ?? "Unknown chunk") + " build " + (d.build_number ?? 1) + " read sequence " + d.ledger_version;
-    case "GateDecision": return (d.accepted ? "Passed. " : "Blocked. ") + (d.reason ?? "No gate reason");
+    case "GateDecision": return gateLabel(d) + (d.reason ?? "No gate reason");
     case "StaleMarked": return array(d.chunk_ids).join(", ") + " flagged after a change to " + (e.commitment_id ?? "a decision");
     case "StaleDetected": return e.chunk_id + " build " + d.build_number + " detected at " + d.path;
     case "VoteCast": return d.voter + (d.choice == null ? " abstained" : " voted for " + d.choice);
@@ -183,7 +184,7 @@ function describe(e) {
 }
 
 function eventColor(e) {
-  if (e.type === "GateDecision" && dataOf(e).accepted === false) return "kind-block";
+  if (e.type === "GateDecision" && gateState(dataOf(e)) === "blocked") return "kind-block";
   if (e.type === "ExecutorRebound") return "kind-change";
   if (e.type === "BriefChanged") return "kind-brief";
   if (e.type === "ChunkBuilt") return "kind-build";
@@ -219,6 +220,14 @@ function boundary(cell, chunk, heading) {
   if (heading && labels.length) cell.append(node("span", labels.join(" / "), "edge-label"));
 }
 
+function gateState(d) {
+  const findings = d.findings ?? [];
+  if (findings.some(f => f.outcome === "block")) return "blocked";
+  if (findings.some(f => ["held", "unverified"].includes(f.outcome))) return "held";
+  return d.accepted ? "current" : "blocked";
+}
+function gateLabel(d) { return gateState(d) === "held" ? "Held. " : d.accepted ? "Passed. " : "Blocked. "; }
+
 function matrix() {
   const head = $("matrix").createTHead().insertRow();
   head.append(node("th", "Decision"));
@@ -237,8 +246,8 @@ function matrix() {
     boundary(cell, c, false);
     selectButton(cell, {chunk: c.id}, c.builds.length ? c.builds.map((b, i) => {
       const gate = b.gate_decisions.at(-1);
-      const status = gate ? (gate.accepted ? "current" : "blocked") : "pending";
-      return badge("b" + b.build_number + " " + (gate ? (gate.accepted ? "pass" : "block") : "unchecked"), status, i === c.builds.length - 1);
+      const status = gate ? gateState(gate) : "pending";
+      return badge("b" + b.build_number + " " + (gate ? (gateState(gate) === "held" ? "held" : gate.accepted ? "pass" : "block") : "unchecked"), status, i === c.builds.length - 1);
     }) : [node("span", "No builds", "muted small")]);
   }
   for (const d of D.commitments) {
@@ -304,7 +313,7 @@ function chunkDetail(root, chunk, decision) {
       for (const site of sites) line(card, site.sentence_id, sentences.get(site.sentence_id)?.text ?? "Source sentence unavailable");
       if (!sites.length) line(card, "Use sites", "No sentence-level use was recorded");
     }
-    for (const gate of b.gate_decisions) line(card, "Gate #" + gate.seq, (gate.accepted ? "Passed. " : "Blocked. ") + gate.reason);
+    for (const gate of b.gate_decisions) line(card, "Gate #" + gate.seq, gateLabel(gate) + gate.reason);
     for (const mark of b.stale_marks) line(card, "Stale #" + mark.seq, mark.commitment_id);
     for (const detection of b.detections) line(card, "Detection #" + detection.seq, detection.path);
     line(card, "Output reference", b.output_ref);

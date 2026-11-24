@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, PositiveInt
 from soc.episode import Approval, Brief, Revision, Sentence
 
 type Strength = Literal["must", "should", "may"]
-type DecisionKind = Literal["term", "non_lexical", "scope_limited"]
+type DecisionKind = str
 
 
 class Translation(BaseModel):

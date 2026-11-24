@@ -44,6 +44,7 @@ EventType = Literal[
     "PrincipalAnswered",
     "StandingUpdated",
     "SanctionApplied",
+    "HeldResolved",
 ]
 Transition = Literal["Revised", "Superseded", "Revoked"]
 
@@ -255,7 +256,7 @@ class StaleDetected(Record):
     build_number: Version
 
 
-GateOutcome = Literal["block", "warning", "allowed", "unknown"]
+GateOutcome = Literal["block", "warning", "allowed", "unknown", "held", "unverified"]
 
 
 class GateFinding(Record):
@@ -267,6 +268,9 @@ class GateFinding(Record):
     strength: Strength | None = None
     start: BaseVersion | None = None
     end: BaseVersion | None = None
+    check_id: str | None = None
+    unknown_cause: Literal["configuration", "runtime"] | None = None
+    brief_clause_ids: list[str] = Field(default_factory=list)
 
 
 class GateDecision(Record):
@@ -274,6 +278,28 @@ class GateDecision(Record):
     reason: Text
     build_number: Version | None = None
     findings: list[GateFinding] = Field(default_factory=list)
+
+    @property
+    def held(self) -> bool:
+        return any(row.outcome in {"held", "unverified"} for row in self.findings)
+
+
+class MeaningEvidence(Record):
+    reference: Text
+    quote: Text
+
+
+class HeldResolution(Record):
+    check_id: Text
+    chunk_id: Text
+    build_number: Version
+    resolver: Actor
+    verdict: Literal["compliant", "violation", "unknown"]
+    rationale: Text
+    evidence: list[MeaningEvidence]
+    input_tokens: BaseVersion = 0
+    output_tokens: BaseVersion = 0
+    estimated_cost_usd: float = Field(default=0, ge=0, allow_inf_nan=False)
 
 
 class PrincipalAnswered(Record):

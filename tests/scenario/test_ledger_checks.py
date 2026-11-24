@@ -132,13 +132,13 @@ def test_gate_checks_latest_rulings_tombstones_and_strength_by_site(tmp_path):
         ]
         _build(ledger, VersionRef(commitment_id="required", version=2), number=2)
         repaired = check(2)
-        assert repaired.accepted and repaired.build_number == 2
+        assert not repaired.accepted and repaired.held and repaired.build_number == 2
         assert {
             (row.rule, row.outcome, row.commitment_id) for row in repaired.findings
         } == {
             ("term", "warning", "advised"),
             ("term", "allowed", "optional"),
-            ("bcp14", "unknown", None),
+            ("bcp14", "held", None),
         }
         assert "Missing approved rendering" in repaired.reason
         assert loaded == ["build-1.json", "build-2.json"]

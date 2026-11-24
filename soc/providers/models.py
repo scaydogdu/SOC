@@ -17,6 +17,8 @@ class Outcome(StrEnum):
     BUDGET_EXHAUSTED = "budget_exhausted"
     CACHE_MISS = "cache_miss"
     COOPERATION_BLOCKED = "cooperation_blocked"
+    UNVERIFIED = "unverified"
+    HELD_VIOLATION = "held_violation"
 
 
 class Mode(StrEnum):

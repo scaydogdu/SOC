@@ -3,8 +3,9 @@
 from collections import Counter
 from collections.abc import Callable, Iterable, Mapping, Sequence
 
-from soc.enforce.checker import Checker, Finding, NormativeRendering
-from soc.episode import Brief, Clause
+from soc.enforce.checker import Checker, NormativeRendering
+from soc.enforce.meaning import CheckAssessment, apply_resolution, assess, gate_finding
+from soc.episode import Clause
 from soc.ledger.models import (
     BINDING_STATES,
     Actor,
@@ -15,7 +16,6 @@ from soc.ledger.models import (
     Event,
     GateDecision,
     GateFinding,
-    GateOutcome,
     RepairPath,
     Tombstone,
     VersionRef,
@@ -30,11 +30,7 @@ from soc.memory import (
 )
 from soc.triad.examination import Draft
 
-_OUTCOMES: dict[str, GateOutcome] = {
-    "must": "block",
-    "should": "warning",
-    "may": "allowed",
-}
+_gate_finding = gate_finding
 
 
 def _sites(
@@ -83,22 +79,6 @@ def _forbidden(
             yield row, sites
 
 
-def _gate_finding(finding: Finding) -> GateFinding:
-    outcome: GateOutcome = (
-        "unknown" if finding.status == "unknown" else _OUTCOMES[finding.strength]
-    )
-    return GateFinding(
-        rule=finding.rule,
-        detail=finding.detail,
-        outcome=outcome,
-        sentence_id=finding.sentence_id,
-        commitment_id=finding.decision_id,
-        strength=finding.strength,
-        start=None if finding.span is None else finding.span.start,
-        end=None if finding.span is None else finding.span.end,
-    )
-
-
 def gate_chunk(
     ledger: Ledger,
     actor: Actor,
@@ -109,6 +89,7 @@ def gate_chunk(
     checker: Checker,
     load_output: Callable[[str], ChunkOutput],
     normative: Sequence[NormativeRendering] = (),
+    observe: Callable[[CheckAssessment], None] | None = None,
 ) -> Event:
     return gate_chunks(
         ledger,
@@ -117,6 +98,7 @@ def gate_chunk(
         checker=checker,
         load_output=load_output,
         normative=normative,
+        observe=observe,
     )[0]
 
 
@@ -128,6 +110,7 @@ def gate_chunks(
     checker: Checker,
     load_output: Callable[[str], ChunkOutput],
     normative: Sequence[NormativeRendering] = (),
+    observe: Callable[[CheckAssessment], None] | None = None,
     path: RepairPath = "gate",
 ) -> tuple[Event, ...]:
     """Check built artifacts and log all verdicts against one current snapshot."""
@@ -141,6 +124,7 @@ def gate_chunks(
             checker,
             load_output,
             normative,
+            observe,
         ),
     )
 
@@ -152,11 +136,14 @@ def score_chunks(
     checker: Checker,
     load_output: Callable[[str], ChunkOutput],
     normative: Sequence[NormativeRendering] = (),
+    observe: Callable[[CheckAssessment], None] | None = None,
 ) -> dict[str, GateDecision]:
     """Inspect the current builds of a partial run against the active brief."""
     return ledger.inspect_builds(
         dict.fromkeys(chunks),
-        evaluate=_artifact_checks(ledger, chunks, checker, load_output, normative),
+        evaluate=_artifact_checks(
+            ledger, chunks, checker, load_output, normative, observe
+        ),
     )
 
 
@@ -166,6 +153,7 @@ def _artifact_checks(
     checker: Checker,
     load_output: Callable[[str], ChunkOutput],
     normative: Sequence[NormativeRendering],
+    observe: Callable[[CheckAssessment], None] | None = None,
 ) -> Callable[[str, Projection, ChunkBuilt], list[GateFinding]]:
     authority = ledger.authority
     if authority is None:
@@ -196,9 +184,7 @@ def _artifact_checks(
                 ref=DecisionRef(row.commitment_id, row.version),
                 value=row.rendering,
                 scope_keys=frozenset(row.scope),
-                kind="non_lexical"
-                if row.rule is not None and row.rule.kind == "non_lexical"
-                else "term",
+                kind=row.rule.kind if row.rule is not None else "term",
                 strength=row.strength,
                 sentence_ids=_sites(chunk, row.scope, row.sentence_ids),
             )
@@ -216,19 +202,34 @@ def _artifact_checks(
         ]
         clauses = {clause.id: clause.text for clause in initial_brief.clauses}
         clauses.update(state.brief)
-        brief = Brief(
-            clauses=[Clause(id=key, text=text) for key, text in clauses.items()]
+        brief = initial_brief.model_copy(
+            update={
+                "clauses": [Clause(id=key, text=text) for key, text in clauses.items()]
+            }
         )
+        findings, assessment = assess(
+            checker,
+            chunk_id,
+            build.build_number,
+            chunk.sentences,
+            output,
+            brief,
+            decisions=decisions,
+            forbidden=forbidden,
+            normative=normative,
+        )
+        if observe is not None:
+            observe(assessment)
+        checks = {row.check_id: row for row in assessment.held}
         return [
-            _gate_finding(finding)
-            for finding in checker.check(
-                chunk.sentences,
-                output,
-                brief,
-                decisions=decisions,
-                forbidden=forbidden,
-                normative=normative,
+            apply_resolution(
+                finding,
+                checks[finding.check_id],
+                state.held_resolutions.get(finding.check_id),
             )
+            if finding.check_id in checks
+            else finding
+            for finding in findings
         ]
 
     return evaluate

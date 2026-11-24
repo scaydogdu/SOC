@@ -206,7 +206,11 @@ async def run_model_rag_episode(
         raise ValueError("cooperation runtime observation requires SOC memory")
     team.validate(spec, client)
     spec = spec.model_copy(update={"max_in_flight": 1})
-    episode = validate_runtime(load_runtime(episode_dir))
+    episode = validate_runtime(
+        load_runtime(episode_dir),
+        require_checkable=experiment.require_checkable,
+        normative=experiment.normative,
+    )
     retrieval = retrieval or RetrievalConfig()
     memory = RAGMemory(embedder, checker, retrieval=retrieval, episode=episode)
     triad = ModelTriad(spec, experiment, client, team, agreement, principal, checker)

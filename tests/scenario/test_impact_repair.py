@@ -307,7 +307,10 @@ def test_repairs_at_review_gate_and_final_sweep_are_logged_once(tmp_path):
                 checker=Checker(),
                 load_output=outputs.__getitem__,
             )
-            assert GateDecision.model_validate(gate.payload["data"]).accepted
+            assert not any(
+                row.outcome == "block"
+                for row in GateDecision.model_validate(gate.payload["data"]).findings
+            )
             with pytest.raises(ValueError, match="every scheduled"):
                 await final_sweep(
                     ledger,
@@ -334,7 +337,11 @@ def test_repairs_at_review_gate_and_final_sweep_are_logged_once(tmp_path):
                 checker=Checker(),
                 load_output=outputs.__getitem__,
             )
-            assert completed.accepted and len(completed.decisions) == len(chunks)
+            assert not completed.accepted and len(completed.decisions) == len(chunks)
+            assert any(
+                GateDecision.model_validate(row.payload["data"]).held
+                for row in completed.decisions
+            )
 
         asyncio.run(scenario())
         assert invoked == [

@@ -270,6 +270,8 @@ baseline: 34/34 branches (100.0%)
 
 ## Live preparation on 23 November 2026
 
+**24 November update:** the held-unknown change supersedes the earlier toy completion claim below. Can explicitly chose the toy as an exempt fixture for configuration preflight. Runtime `must` unknowns still require resolution. With the current `meaning_model: null`, each prepared condition now ends `unverified`; this is not a completed live exit check. The offline estimator was rerun: 70 drafting/triad calls, USD 0.1411541 assumed usage cost, USD 14.2153766 scripted retry envelope, peak reservation USD 0.075544. These estimates exclude meaning-model calls because no model is selected. The report retains unresolved checks across historical content contexts; the final artifact count is separately available as `unverified_final` in each run's `unknowns.json`. Select the shared resolver, reestimate its calls and budget, reconcile the existing reservations and pass the probes before live launch. No real campaign action was performed for this update.
+
 The four proposed YAML files under `config/m2-live/` use the toy episode, GPT-6.1 Sol with GPT-6 Luna as successor, Claude Sonnet 5.5 as peer, and Gemini 3.8 Flash as reviewer. One chunk runs at a time. The proposed conditions are cross-examination at low and high effort, open discussion at low effort, and principal-only at low effort. The two Form modes use provisional low effort pending Can's choice. Form cross-examination can reuse the Keep run at that shared effort.
 
 ### Billing inspection and readiness refresh

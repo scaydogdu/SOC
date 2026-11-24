@@ -1,6 +1,6 @@
 # M3 — cooperation layer and evaluation
 
-Started on 24 November 2026 at Can's explicit request. M2 remains unaccepted: its live episode checks, provider re-probes and operator reconciliation are outstanding. Starting this work does not close M2 or authorize settlement, release or a cap change. The initial standing implementation followed `PROJECT_PLAN.md` section 8. During the runtime continuation, `CODEX_BRIEF_HELD_UNKNOWN.md` and a corresponding Pilot B plan update appeared in the working tree and were read; their held-finding requirements are the next scoped M3 task and are not implemented by this cooperation change.
+Started on 24 November 2026 at Can's explicit request. M2 remains unaccepted: its live episode checks, provider re-probes and operator reconciliation are outstanding. Starting this work does not close M2 or authorize settlement, release or a cap change. The initial standing implementation followed `PROJECT_PLAN.md` section 8. During the runtime continuation, `CODEX_BRIEF_HELD_UNKNOWN.md` and a corresponding Pilot B plan update appeared in the working tree and were read; their held-finding requirements are implemented and verified in the later held-check section below.
 
 ## First implementation: runtime standing policy
 
@@ -66,7 +66,7 @@ baseline: 34/34 branches (100.0%)
 
 1. Review the provisional weighted approval policy and numeric standing policy. Broaden instrument validation on Pilot A observations.
 2. Automatic replacement needs an authorized candidate policy. Current opt-in runs stop with `cooperation_blocked` when replacement is required or the reviewer loses review permission.
-   The next gate/checker task is `CODEX_BRIEF_HELD_UNKNOWN.md`: configuration preflight, held `must` unknowns, shared resolution with RAG, unverified output/scoring and the new Pilot B unknown-rate check. This work remains outstanding.
+   `CODEX_BRIEF_HELD_UNKNOWN.md` is implemented in the section below. Live meaning-model selection and instrument calibration remain open.
 3. Announced/hidden prompts, tokenizer-measured length matching and golden leakage tests.
 4. Private planted-error injection/reversion and proof that no planted span remains before scoring.
 5. All-seed evaluation of accepted, rejected and unfinished outputs; separate fidelity, preference and continuity scores.
@@ -160,3 +160,95 @@ baseline: 34/34 branches (100.0%)
 ```
 
 No live provider calls, real campaign settlements or cap changes were made. The independently added held-unknown brief and plan edit are preserved outside this implementation commit.
+
+## Held unknown checks — 24 November
+
+Implemented `CODEX_BRIEF_HELD_UNKNOWN.md`. Can answered the toy question explicitly: **keep the toy as an exempt fixture**. Its public `brief.yaml` now has `fixture: true`, and the manifest hash was updated. This bypasses configuration preflight only; no runtime unknown becomes a pass. No modal wording was invented or approved by this exemption.
+
+### Preflight and configuration
+
+Evaluation episodes default to configuration checking in `validate_runtime`, complete episode validation, `eval.precheck`, both live launch paths and the runners. `ExperimentSettings.require_checkable` defaults to true. Approved mappings can be supplied in public `Brief.normative` entries with `keyword`, `value`, `brief_clause_id` and optional strength, or through the experiment's existing normative configuration. Live preflight runs before probes, provider requests, campaign creation or principal-key access. Storage/read-only ledger validation remains structural because storage does not own experiment configuration; it does not certify checker readiness.
+
+Errors name the affected decision and missing piece. Examples:
+
+- `decision D4: missing or ambiguous approved modal wording for MUST at 9999-1-s03`
+- `decision D1: missing checkable wording`
+- `decision D1: no deterministic checker for rule kind 'unimplemented'`
+
+Unknown rule kinds are no longer silently treated as terminology by the runtime checker. Fixture metadata is excluded from worker and meaning-model prompts; approved modal requirements remain public.
+
+### Held findings and resolution records
+
+`GateOutcome` now includes `held` and `unverified` in `soc/ledger/models.py`. A checker unknown on a `must` requirement becomes held. The ledger boundary also normalizes raw unknown findings unless explicitly weaker. `GateDecision.accepted` is false while held findings exist, but held findings do not mark a build stale and do not start repairs. Drafting continues to the final resolution phase. `should` and `may` unknowns keep their prior non-blocking treatment.
+
+The shared `soc/enforce/meaning.py` path builds a content-addressed `HeldCheck` from the public source, translation, brief, requirements, chunk and build. Changed wording, rules, output or build creates a different ID. Applicable sites are normalized to the current source; unrelated decisions cannot alter the request. Forbidden requirements participate in the bound context. Active modal wording reaches both arms, while future modal mappings stay out of prompts until their brief clause becomes active. A resolver returns `compliant`, `violation` or `unknown`, with a rationale and exact source/output/brief citations. Conclusive replies without verifiable citations become unknown. Provider failures are distinguished from semantic uncertainty and stop the run with the provider outcome; they are not retried across subsequent held sites in a loop.
+
+Results append to `meaning.sqlite` in both arms. SOC additionally appends a `HeldResolved` ledger event and projects it into `held_resolutions`; RAG projects the same result into `events.jsonl`. The event contains the check ID, chunk/build, resolver identity, verdict, rationale, evidence, token usage and estimated cost. SOC validates its resolver/chunk/build and held-finding reference before writing, and conflicting reuse of an ID is refused. The underlying records are append-only. Ledger writes still undergo the existing hash-chain and SHACL checks.
+
+A compliant verdict clears that held finding. A violation becomes a block and enters the normal bounded repair path. Unknown verdicts remain held. Source-context binding prevents an earlier compliant verdict from approving a changed requirement or output. RAG applies late resolutions at the same finalization phase during resume, rather than letting a cached future verdict alter earlier drafting. Mean-model usage is preserved in RAG totals on record, replay and resume; both arms publish a separate `meaning_usage` component.
+
+### Final output and scoring
+
+Unresolved findings publish as `unverified` in `final_findings.jsonl`; run status is `unverified`, and `assembly.json` does not accept assembly. Partial provider-failed or budget-exhausted runs also retain their unresolved findings. Existing outputs remain available for evaluation. Completed resolution and repair runs replay byte-identically for chunks, findings, unknown reports and assembly metadata.
+
+`eval.continuity.score_continuity` applies an unverified veto to independent use-site assessments: an unverified or missing use cannot count as kept, even if the candidate assessment says kept. A sentence-wide finding without a decision ID conservatively excludes all assessed uses on that sentence. It does not turn ordinary rejection into incorrectness: rejected and unfinished outputs remain assessable. This supplies the continuity aggregation boundary; the complete all-seed evaluator and judge panel remain unfinished.
+
+`unknowns.json` records the condition, episode, run, must-check opportunities, unknowns, configuration/runtime causes, compliant/violating resolutions and unverified counts. `unverified` includes unresolved historical check contexts; `unverified_final` counts findings remaining on published output. A content-addressed audit prevents identical rechecks or resumed runs from inflating the denominator. Opportunities include passing identity/numeric/verbatim/modal/applicable-decision checks, with the precise rule/sentence/decision counting documented in `Checker.count_must_checks`. They do not equal the number of findings.
+
+`analysis.unknowns` aggregates counts by condition and episode and then divides; it does not average percentages. Duplicate runs and inconsistent counts are refused. `pilot_b_unknowns_pass` reports only the tenth Pilot B criterion: zero configuration-caused unknowns and runtime unknowns at most the configurable 1% threshold. Empty data does not pass. This does not certify the other nine go/no-go criteria.
+
+```sh
+uv run --locked --offline python -m eval.continuity JUDGMENTS.jsonl RUN_DIR
+uv run --locked --offline python -m analysis.unknowns RUN_A/unknowns.json RUN_B/unknowns.json --limit 0.01
+```
+
+The timeline now displays held gates separately from blocks and excludes held-only verdicts from the block count. Its scripted HTML and JSON fixtures were regenerated; nine timeline tests pass. The optional browser/nightly checks were not run.
+
+### Resolver setting and current toy preparation
+
+`experiment.meaning_model` is optional and defaults to `None`. Without a selected resolver, held output remains unverified with no additional provider calls. Set it to a configured roster ID to use the same recorded meaning adapter in SOC and RAG. Its route must pass probes before live launch. Injectable resolvers support offline scenarios. The model's judgments are runtime decisions, not ground truth; Pilot B still needs instrument validation.
+
+The four existing toy preparation paths now correctly report `unverified` with the current configuration. Their latest scripted estimate is documented in `M2_STATUS.md`; it excludes meaning calls and cannot be used to claim completed conditions. Select the resolver and refresh the estimate/budget before launching. No live call, settlement, release or cap change was made.
+
+### Tests and exit evidence
+
+Tests were added first and failed on the missing preflight API and the previous unknown/pass behavior. New scenarios:
+
+- `test_evaluation_preflight_names_missing_modal_decision_and_fixture_is_explicit`
+- `test_unknown_must_is_held_without_changing_weaker_strengths`
+- `test_a_real_violation_still_blocks_when_other_findings_are_held`
+- `test_both_arms_hold_without_repair_resolve_and_publish_unverified` (both arms; absent resolver, unknown, invalid evidence, compliant, repair and persistent violation)
+- `test_held_resolution_replays_byte_identically_and_resumes_without_calls` (both arms; compliant, repair and unknown)
+- `test_evaluation_validator_precheck_and_launcher_refuse_before_any_provider_or_key_read`
+- `test_public_modal_configuration_and_unsupported_rules_name_the_decision`
+- `test_meaning_provider_failure_stops_instead_of_becoming_semantic_unknown`
+- `test_resolutions_are_context_bound_and_append_only`
+- `test_unknown_rule_is_not_treated_as_a_term_and_check_counts_include_passes`
+- `test_continuity_counts_unverified_and_missing_uses_as_not_kept`
+- `test_unknown_report_aggregation_uses_counts_and_rejects_duplicate_runs`
+- `test_held_reporting_cli_and_no_data_do_not_claim_a_pass`
+- `test_meaning_prompts_never_read_private_keys_or_fixture_metadata`
+- `test_unconfigured_meaning_model_is_refused_without_substitution`
+- `test_equivalent_applicable_requirements_share_context_but_forbidden_changes_do_not`
+- `test_active_modal_wording_reaches_both_arms_without_future_or_fixture_metadata`
+
+These cover all eight brief exit requirements. Existing toy tests were updated to expect unverified output where their missing modal configuration previously passed; their stale repair and scheduling assertions remain in place. The translation prompt golden remains unchanged for ordinary findings. Coverage floors were kept and a new floor covers continuity/unknown reporting.
+
+`ruff format` ran. `./scripts/check` exited successfully:
+
+```text
+All checks passed!
+119 files already formatted
+Success: no issues found in 59 source files
+Contracts: 1 kept, 0 broken.
+401 passed, 3 deselected in 51.42s
+held_reporting: 20/22 branches (90.9%)
+cooperation: 87/92 branches (94.6%)
+timeline: 35/36 branches (97.2%)
+ledger: 363/396 branches (91.7%)
+episode: 60/62 branches (96.8%)
+segmenter: 67/68 branches (98.5%)
+providers: 155/166 branches (93.4%)
+checker: 116/120 branches (96.7%)
+baseline: 34/34 branches (100.0%)
+```

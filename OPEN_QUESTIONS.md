@@ -7,7 +7,8 @@
 - Confirm whether `Revised` and `Superseded` should differ beyond the event type and allowed replacement states.
 - Decide whether to keep Inspect AI's model layer after reviewing the [M1 trial](M1_STATUS.md). Thin clients are the working path.
 - Decide whether an episode revision should be able to narrow or widen a decision's scope keys. M1 treats a scope-limited revision as a value change within the existing scope, as specified in the M1 brief.
-- Approve the toy episode's Turkish renderings for BCP 14 keywords. The public brief describes preserving normative force, and D4 records an interpretation. The checker needs the actual approved modal wording tied to a brief clause and reports `unknown` when it is missing.
+- Decided by Can on 24 November: keep the toy episode explicitly exempt as a fixture. `brief.yaml` now records `fixture: true`. This exempts configuration preflight only; runtime `must` unknowns are still held and cannot pass final acceptance. Evaluation episodes require approved modal mappings in their public brief.
+- Choose the shared meaning-check model from the configured roster before live held resolution, then rerun the cost estimate with that model. `experiment.meaning_model` defaults to `None`; unconfigured resolution publishes `unverified` and makes no model calls. The previous estimate does not include meaning calls.
 - Resolve the Gemini 4 Argon rate limit and Gemini 3.8 Flash server errors, then verify both effort levels for each model. The completed preflight and live toy are recorded in the [M1 exit checklist](M1_STATUS.md#m1-exit-checklist).
 
 - Confirm the shared maximum of two repair rounds per chunk and whether to report first-pass violations.

@@ -57,7 +57,16 @@ class TranslationPrompts:
         if previous is not None:
             repair = Template(self._templates["repair"]).substitute(
                 previous=previous.model_dump_json(),
-                findings=json_text([asdict(finding) for finding in findings]),
+                findings=json_text(
+                    [
+                        {
+                            key: value
+                            for key, value in asdict(finding).items()
+                            if key != "unknown_cause" or value is not None
+                        }
+                        for finding in findings
+                    ]
+                ),
                 revisions=json_text(
                     [
                         {

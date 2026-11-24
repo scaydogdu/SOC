@@ -119,7 +119,7 @@ def test_ledger_runner_rebinds_resumes_repairs_and_gates_completed_episode(tmp_p
     )
     interrupted = False
     result = asyncio.run(run())
-    assert result.status == "completed"
+    assert result.status == "unverified"
     assert len(result.outputs) == 4
     assert calls[:5] == [
         ("chunk-1", 0, "old-fake"),
@@ -140,7 +140,11 @@ def test_ledger_runner_rebinds_resumes_repairs_and_gates_completed_episode(tmp_p
         assert ledger.verify() is None
         state = ledger.snapshot()
         assert state == ledger.rebuild()
-        assert all(gate.accepted for gate in state.gates.values())
+        assert any(gate.held for gate in state.gates.values())
+        assert all(
+            not any(row.outcome == "block" for row in gate.findings)
+            for gate in state.gates.values()
+        )
         assert state.open_flags == {}
         assert state.first_detection[("chunk-2", 1)] == "final_sweep"
         assert [e.type for e in ledger._events()].count("ExecutorRebound") == 1
@@ -203,7 +207,7 @@ def test_ledger_runner_allows_three_chunks_in_flight_after_schedule_barrier(tmp_
             checker=Checker(),
             worker=worker,
         )
-        assert result.status == "completed"
+        assert result.status == "unverified"
         assert len(result.outputs) == 6
 
     asyncio.run(scenario())

@@ -187,7 +187,8 @@ class _Projection:
                 }
                 outcome: CheckOutcome
                 if self.build_epochs[key] != self.rule_epoch or any(
-                    finding.rule not in content_rules or finding.outcome == "unknown"
+                    finding.rule not in content_rules
+                    or finding.outcome in {"unknown", "held", "unverified"}
                     for finding in verdict.findings
                 ):
                     outcome = "unknown"

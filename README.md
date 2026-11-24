@@ -4,6 +4,12 @@ M0 builds the foundations for testing whether a task-owned ledger preserves tran
 
 M3 supplies runtime standing in `soc.cooperation.standing` and an opt-in observer in `soc.cooperation.runtime`. Sequential SOC conditions can enable `run.cooperation` with an episode position, visibility and policy. The observer derives checks from verified ledger events and persists an append-only cooperation sidecar; the model runner uses the resulting voting/review permissions and weights. Weighted approvals preserve existing distinct-approver floors and additionally require a strict weighted majority. Replacement or an ineligible reviewer stops the run without substituting a model. Defaults remain provisional, and visibility currently controls successor transfer only; announced prompts are unfinished. See [M3_STATUS.md](M3_STATUS.md) for tests, configuration and remaining work. M2 live validation remains outstanding.
 
+Undecided `must` checks are now held in both SOC and RAG. They do not trigger repair or mark work stale, but prevent final acceptance. Before assembly, the shared meaning resolver can mark them compliant, violating or still unknown; violations enter bounded repair, and unresolved findings publish as `unverified`. Evaluation packages must supply checkable modal wording and rules before a provider call. Can explicitly exempted the toy fixture from that configuration check; its runtime unknowns are still held.
+
+Set `experiment.meaning_model` to a configured, probed roster model to enable recorded meaning calls. Its default is `None`, which leaves undecided work unverified without making a model call. The same setting applies to both memory arms. `meaning.sqlite` preserves resolutions; `unknowns.json` reports check counts, causes, resolutions and the unknown-rate Pilot B criterion; `assembly.json` records final acceptance. The current toy estimate excludes meaning calls and is not a completion result. Reestimate with the selected model before live launch.
+
+`python -m analysis.unknowns RUN_A/unknowns.json RUN_B/unknowns.json` aggregates counts by condition and episode before calculating rates. `python -m eval.continuity JUDGMENTS.jsonl RUN_DIR` applies the unverified/missing-site exclusion to independent per-use assessments. These reporting helpers do not replace the remaining all-seed evaluation and judge-panel work.
+
 ## Setup and checks
 
 With `uv` available on your PATH, run `uv sync --locked` to install the locked Python 3.12 environment. Run the every-commit suite with:
