@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from soc.cooperation.runtime import CooperationSettings
 from soc.enforce.checker import Checker
 from soc.episode import read_yaml
 from soc.ledger.models import Actor, OperationAuthority, VoteCast
@@ -140,7 +141,21 @@ class _TranslationModels:
         )
 
 
-def test_model_triad_records_reusable_term_and_resumes_through_shared_client(tmp_path):
+@pytest.mark.parametrize("cooperation", [None, "hidden", "announced"])
+def test_model_triad_records_reusable_term_and_resumes_through_shared_client(
+    tmp_path, cooperation
+):
+    spec = (
+        SPEC
+        if cooperation is None
+        else SPEC.model_copy(
+            update={
+                "cooperation": CooperationSettings(
+                    episode_position=1, visibility=cooperation
+                )
+            }
+        )
+    )
     public = tmp_path / "public"
     sentences = _episode(public)
     key = tmp_path / "principal.yaml"
@@ -185,7 +200,7 @@ def test_model_triad_records_reusable_term_and_resumes_through_shared_client(tmp
         return await run_model_ledger_episode(
             public,
             directory,
-            spec=SPEC,
+            spec=spec,
             experiment=ExperimentSettings(),
             principal=principal,
             checker=Checker(),
@@ -236,6 +251,29 @@ def test_model_triad_records_reusable_term_and_resumes_through_shared_client(tmp
     assert replay == result and len(models.calls) == calls
     for name in ("final_chunks.jsonl", "final_findings.jsonl"):
         assert (run_dir / name).read_bytes() == (replay_dir / name).read_bytes()
+    if cooperation is not None:
+        import sqlite3
+
+        with sqlite3.connect(run_dir / "cooperation.sqlite") as db:
+            before = db.execute(
+                "SELECT sequence, records FROM source_events ORDER BY sequence"
+            ).fetchall()
+        calls_before = len(models.calls)
+        assert asyncio.run(run(run_dir, client(run_dir, Mode.LIVE))) == result
+        assert len(models.calls) == calls_before
+        with sqlite3.connect(run_dir / "cooperation.sqlite") as db:
+            after = db.execute(
+                "SELECT sequence, records FROM source_events ORDER BY sequence"
+            ).fetchall()
+            assert after[: len(before)] == before
+            assert all(records == "[]" for _, records in after[len(before) :])
+        with sqlite3.connect(replay_dir / "cooperation.sqlite") as db:
+            assert (
+                db.execute(
+                    "SELECT sequence, records FROM source_events ORDER BY sequence"
+                ).fetchall()
+                == before
+            )
 
 
 @pytest.mark.parametrize("resolution", ["open_discussion", "principal_only"])

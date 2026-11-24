@@ -5,10 +5,11 @@ from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
+from soc.cooperation.runtime import CooperationJournal, CooperationSettings
 from soc.enforce.checker import Checker
 from soc.episode import Approval, Brief, Clause, Episode, load_runtime, validate_runtime
 from soc.ledger.models import (
@@ -47,6 +48,13 @@ class LedgerRunSpec(RunSpec):
     resolution: ResolutionMode = "cross_examination"
     max_in_flight: int = Field(default=3, ge=1, le=3)
     chunk_id_base: ChunkIdBase = 1
+    cooperation: CooperationSettings | None = None
+
+    @model_validator(mode="after")
+    def cooperation_is_sequential(self) -> Self:
+        if self.cooperation is not None and self.max_in_flight != 1:
+            raise ValueError("cooperation currently requires max_in_flight: 1")
+        return self
 
 
 @dataclass(frozen=True)
@@ -94,9 +102,14 @@ async def run_ledger_episode(
     worker: LedgerWorker,
     worker_fingerprint: str | None = None,
     model_protocol: dict[str, object] | None = None,
+    cooperation: CooperationJournal | None = None,
 ) -> LedgerRunResult:
     """Drive drafting, durable builds, scheduled events, and final acceptance."""
     episode = validate_runtime(load_runtime(episode_dir))
+    if (spec.cooperation is None) != (cooperation is None):
+        raise ValueError("cooperation settings require a runtime observer")
+    if cooperation is not None and cooperation.settings != spec.cooperation:
+        raise ValueError("cooperation observer differs from the run configuration")
     fingerprint = digest(
         json_text(
             [
@@ -131,6 +144,7 @@ async def run_ledger_episode(
             principal,
             worker,
             model_protocol,
+            cooperation,
         )
         return await run.execute(episode)
 
@@ -146,6 +160,7 @@ class _LedgerExecution:
         principal: PrincipalSimulator,
         worker: LedgerWorker,
         model_protocol: dict[str, object] | None,
+        cooperation: CooperationJournal | None,
     ) -> None:
         self.ledger = ledger
         self.directory = directory
@@ -155,6 +170,7 @@ class _LedgerExecution:
         self.principal = principal
         self.worker = worker
         self.model_protocol = model_protocol
+        self.cooperation = cooperation
         self.actor = Actor(agent="executor", model=spec.initial_model, role="executor")
         self.successor = self.actor.model_copy(update={"model": spec.successor_model})
         self.handover: ExecutorHandover | None = None
@@ -314,6 +330,8 @@ class _LedgerExecution:
                 normative=self.experiment.normative,
             )
             verdict = GateDecision.model_validate(event.payload["data"])
+            if self.cooperation is not None:
+                self.cooperation.sync(self.ledger)
             if (
                 verdict.accepted
                 or current.build_number > self.experiment.max_repair_rounds
@@ -393,6 +411,8 @@ class _LedgerExecution:
         )
 
     def publish(self, outcome: Outcome, *, accepted: bool) -> LedgerRunResult:
+        if self.cooperation is not None:
+            self.cooperation.sync(self.ledger)
         state = self.ledger.snapshot()
         outputs = {
             key: self.load_output(build.output_ref)
@@ -402,6 +422,8 @@ class _LedgerExecution:
         status: Literal["completed", "blocked", "budget_exhausted", "failed"]
         if outcome is Outcome.OK:
             status = "completed" if accepted else "blocked"
+        elif outcome is Outcome.COOPERATION_BLOCKED:
+            status = "blocked"
         else:
             status = (
                 "budget_exhausted" if outcome is Outcome.BUDGET_EXHAUSTED else "failed"

@@ -2,10 +2,12 @@
 
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import asdict, dataclass
+from fractions import Fraction
 from pathlib import Path
 
 from pydantic import BaseModel
 
+from soc.cooperation.runtime import CooperationJournal, actor_key
 from soc.enforce.checker import Checker
 from soc.episode import Brief, Clause
 from soc.ledger.models import (
@@ -154,6 +156,17 @@ async def run_model_ledger_episode(
         raise ValueError("model client must belong to the SOC run")
     team.validate(spec, client)
     worker = ModelTriad(spec, experiment, client, team, agreement, principal, checker)
+    if spec.cooperation is not None:
+        worker.cooperation = CooperationJournal(
+            run_dir / "cooperation.sqlite",
+            spec.run_id,
+            spec.cooperation,
+            (
+                Actor(agent="executor", model=spec.initial_model, role="executor"),
+                worker.peer,
+                worker.reviewer,
+            ),
+        )
     fingerprint = digest(
         json_text(
             [
@@ -178,6 +191,7 @@ async def run_model_ledger_episode(
         worker=worker,
         worker_fingerprint=fingerprint,
         model_protocol=worker.configuration,
+        cooperation=worker.cooperation,
     )
 
 
@@ -210,6 +224,7 @@ class ModelTriad:
         }
         self.principal = principal
         self.checker = checker
+        self.cooperation: CooperationJournal | None = None
         self.peer = Actor(agent="peer", model=team.peer_model, role="worker")
         self.reviewer = Actor(
             agent="reviewer", model=team.reviewer_model, role="reviewer"
@@ -225,7 +240,20 @@ class ModelTriad:
         except (ProviderRequestError, UnansweredQuestion):
             return Outcome.PARSE_FAILED
 
-    async def _run(self, ledger: Ledger, task: ChunkTask) -> WorkerDraft:
+    async def _run(self, ledger: Ledger, task: ChunkTask) -> WorkerDraft | Outcome:
+        weights: dict[str, Fraction] | None = None
+        if self.cooperation is not None:
+            tracker = self.cooperation.sync(ledger)
+            actors = (task.actor, self.peer, self.reviewer)
+            standings = {
+                actor.agent: tracker.snapshot(actor_key(actor)) for actor in actors
+            }
+            if (
+                any(state.replace for state in standings.values())
+                or not standings[self.reviewer.agent].can_review
+            ):
+                return Outcome.COOPERATION_BLOCKED
+            weights = {agent: state.vote_weight for agent, state in standings.items()}
         used_versions = [
             VersionRef(commitment_id=row.commitment_id, version=row.version)
             for row in task.commitments.values()
@@ -271,7 +299,10 @@ class ModelTriad:
             ]
 
         result, originals = await self.resolve(
-            task, TriadMemoryView(read_evidence, hints, answer, record_flag), []
+            task,
+            TriadMemoryView(read_evidence, hints, answer, record_flag),
+            [],
+            weights=weights,
         )
         for original, actor in zip(originals, (task.actor, self.peer), strict=True):
             capture_worker_draft(
@@ -286,7 +317,7 @@ class ModelTriad:
         for decision in result.decisions:
             sid = decision.examination.difference.sentence_id
             if decision.term is not None:
-                updated = self._record_term(ledger, task, decision)
+                updated = self._record_term(ledger, task, decision, weights=weights)
                 if updated is not None:
                     observed = max(observed, updated)
             ledger.record(
@@ -304,6 +335,8 @@ class ModelTriad:
         task: ChunkTask,
         memory: TriadMemoryView,
         usage: list[tuple[int, int, float]],
+        *,
+        weights: Mapping[str, Fraction] | None = None,
     ) -> tuple[TriadResult, tuple[Draft, Draft]]:
         actors = {
             actor.agent: actor for actor in (task.actor, self.peer, self.reviewer)
@@ -600,11 +633,17 @@ class ModelTriad:
             mode=task.resolution,
             discuss=discuss,
             read_evidence=memory.evidence,
+            weights=weights,
         )
         return result, (first, second)
 
     def _record_term(
-        self, ledger: Ledger, task: ChunkTask, decision: Decision
+        self,
+        ledger: Ledger,
+        task: ChunkTask,
+        decision: Decision,
+        *,
+        weights: Mapping[str, Fraction] | None = None,
     ) -> int | None:
         assert decision.term is not None and decision.term_rendering is not None
         key = decision.term.scope_key
@@ -663,5 +702,6 @@ class ModelTriad:
             voters=(task.actor.agent, self.peer.agent, self.reviewer.agent),
             reason=ruling.rationale,
             mode=task.resolution,
+            weights=weights,
         )
         return event.seq if event.type == "Ratified" else None

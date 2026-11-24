@@ -1,7 +1,8 @@
 """Open writable run ledgers from public episode files."""
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
+from fractions import Fraction
 from pathlib import Path
 
 from soc.episode import Episode, load_runtime
@@ -56,6 +57,7 @@ def record_triad_ruling(
     voters: tuple[str, str, str],
     reason: str,
     mode: ResolutionMode = "cross_examination",
+    weights: Mapping[str, Fraction] | None = None,
 ) -> Event:
     """Bind an outcome from authenticated participants to the exact ruling and site."""
     authority = ledger.authority
@@ -110,9 +112,18 @@ def record_triad_ruling(
     expected_voters = () if decision.required == "SERIAL" else voters
     if tuple(voter for voter, _ in decision.ballots) != expected_voters:
         raise AuthorityError("ballots must come from the authenticated triad")
-    approved = approved_rendering(
-        decision.examination, decision.required, decision.ballots
-    )
+    if (
+        dict(decision.vote_weights) if decision.vote_weights else None
+    ) != weights or len(dict(decision.vote_weights)) != len(decision.vote_weights):
+        raise AuthorityError(
+            "decision weights differ from authenticated runtime weights"
+        )
+    try:
+        approved = approved_rendering(
+            decision.examination, decision.required, decision.ballots, weights=weights
+        )
+    except ValueError as exc:
+        raise AuthorityError("invalid authenticated ballot weights") from exc
     if decision.consistency == "SERIAL":
         if approved is not None or decision.approvals != (authority.principal,):
             raise AuthorityError("decision lacks valid principal approval")

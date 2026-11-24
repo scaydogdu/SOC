@@ -369,6 +369,10 @@ class Ledger:
     def authority(self) -> OperationAuthority | None:
         return self._authority
 
+    @property
+    def run_id(self) -> str:
+        return self._run_id
+
     def initial_brief(self) -> Brief:
         if self._episode is None:
             raise ValueError("this ledger has no public episode")
@@ -424,6 +428,12 @@ class Ledger:
         except LedgerIntegrityError as exc:
             return exc.seq
         return None
+
+    def history(self) -> tuple[Event, ...]:
+        """Read detached operation events after verifying their hash chain."""
+        if self.verify() is not None:
+            raise ValueError("ledger history failed integrity verification")
+        return tuple(self._events())
 
     def rebuild(self, *, through: int | None = None) -> Projection:
         """Replay persisted events into a fresh projection."""

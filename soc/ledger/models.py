@@ -208,6 +208,8 @@ class ResolutionTrace(Record):
     rendering: Text
     approvers: list[Text]
     ballots: list[ResolutionBallot]
+    vote_weights: dict[Text, Text] = Field(default_factory=dict)
+    evidence_supporters: list[Text] = Field(default_factory=list)
 
 
 class FlagResolved(Record):

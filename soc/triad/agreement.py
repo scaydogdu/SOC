@@ -2,6 +2,7 @@
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
+from fractions import Fraction
 from typing import Literal, Self, get_args
 
 from pydantic import model_validator
@@ -18,6 +19,7 @@ from soc.ledger.models import (
 )
 from soc.memory import ChunkInput, ChunkOutput, Translation
 from soc.triad.examination import (
+    Difference,
     Draft,
     Examination,
     ReadEvidence,
@@ -108,6 +110,7 @@ class Decision:
     ballots: tuple[tuple[str, Ballot], ...]
     term: TermTarget | None = None
     term_rendering: str | None = None
+    vote_weights: tuple[tuple[str, Fraction], ...] = ()
 
     def trace(self) -> ResolutionTrace:
         return ResolutionTrace(
@@ -121,6 +124,17 @@ class Decision:
                 ResolutionBallot(voter=voter, choice=ballot.choice)
                 for voter, ballot in self.ballots
             ],
+            vote_weights={voter: str(weight) for voter, weight in self.vote_weights},
+            evidence_supporters=sorted(
+                {
+                    turn.challenge.worker
+                    for turn in self.examination.turns
+                    if turn.answer is not None
+                    and turn.challenge.worker in self.approvals
+                }
+            )
+            if self.vote_weights
+            else [],
         )
 
     @property
@@ -162,15 +176,41 @@ def approved_rendering(
     examination: Examination,
     required: Consistency,
     ballots: Sequence[tuple[str, Ballot]],
+    *,
+    weights: Mapping[str, Fraction] | None = None,
 ) -> tuple[str, tuple[str, ...]] | None:
     """Return the unique draft choice that clears the approval threshold."""
     if required == "SERIAL":
         return None
+    if weights is not None:
+        voters = [voter for voter, _ in ballots]
+        if (
+            len(voters) != 3
+            or len(set(voters)) != 3
+            or weights.keys() != set(voters)
+            or any(
+                not isinstance(weight, Fraction) or not 0 <= weight <= 1
+                for weight in weights.values()
+            )
+        ):
+            raise ValueError(
+                "weights require three distinct voters and bounded rational values"
+            )
+        if any(
+            weights[voter] == 0 and ballot.choice is not None
+            for voter, ballot in ballots
+        ):
+            raise ValueError("a zero-weight voter must abstain")
     first = tuple(voter for voter, ballot in ballots if ballot.choice == "first")
     second = tuple(voter for voter, ballot in ballots if ballot.choice == "second")
     if (
         len(first) == len(second)
         or max(len(first), len(second)) < TRIAD_APPROVAL_COUNTS[required]
+    ):
+        return None
+    supporters = first if len(first) > len(second) else second
+    if weights is not None and sum(weights[voter] for voter in supporters) * 2 <= sum(
+        weights.values()
     ):
         return None
     return (
@@ -189,14 +229,22 @@ async def _decide(
     principal: str,
     vote: Vote,
     settle: Settle,
+    weights: Mapping[str, Fraction] | None,
 ) -> Decision:
     ballots: list[tuple[str, Ballot]] = []
     if term is not None:
         term.validate_difference(examination)
     if required != "SERIAL":
         for voter in voters:
-            ballots.append((voter, await vote(voter, examination, kind)))
-        if approved := approved_rendering(examination, required, ballots):
+            ballot = (
+                Ballot(choice=None)
+                if weights is not None and weights[voter] == 0
+                else await vote(voter, examination, kind)
+            )
+            ballots.append((voter, ballot))
+        if approved := approved_rendering(
+            examination, required, ballots, weights=weights
+        ):
             rendering, approvals = approved
             term_rendering = None
             if term is not None:
@@ -215,6 +263,7 @@ async def _decide(
                 tuple(ballots),
                 term,
                 term_rendering,
+                tuple(weights.items()) if weights is not None else (),
             )
 
     answer = await settle(principal, examination, kind)
@@ -230,6 +279,7 @@ async def _decide(
         tuple(ballots),
         term,
         answer.rendering if term is not None else None,
+        tuple(weights.items()) if weights is not None else (),
     )
 
 
@@ -252,6 +302,7 @@ async def run_triad(
     mode: ResolutionMode = "cross_examination",
     discuss: Discuss | None = None,
     read_evidence: ReadEvidence | None = None,
+    weights: Mapping[str, Fraction] | None = None,
 ) -> TriadResult:
     """Resolve each examined difference and assemble a draft in source order."""
     voters = (first.worker, second.worker, reviewer)
@@ -259,6 +310,14 @@ async def run_triad(
     if len(set(participants)) != 4 or any(not agent.strip() for agent in participants):
         raise ValueError(
             "workers, reviewer and principal must have distinct identities"
+        )
+    if weights is not None:
+        # Validate even when drafts agree or classification routes straight to the principal.
+        approved_rendering(
+            Examination(Difference("validation", "first", "second"), ()),
+            "QUORUM",
+            [(voter, Ballot(choice=None)) for voter in voters],
+            weights=weights,
         )
     if mode == "cross_examination":
         if review is None or respond is None:
@@ -298,6 +357,7 @@ async def run_triad(
             principal,
             vote,
             settle,
+            weights,
         )
         decisions.append(decision)
         renderings[examination.difference.sentence_id] = decision.rendering

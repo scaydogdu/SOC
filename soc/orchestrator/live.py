@@ -457,6 +457,12 @@ class SOCCondition(BaseModel):
     memory: Literal["soc", "rag"] = "soc"
     retrieval: RetrievalConfig | None = None
 
+    @model_validator(mode="after")
+    def cooperation_requires_ledger(self) -> "SOCCondition":
+        if self.memory != "soc" and self.run.cooperation is not None:
+            raise ValueError("cooperation runtime observation requires SOC memory")
+        return self
+
 
 async def run_live_soc(
     config: LiveConfig,

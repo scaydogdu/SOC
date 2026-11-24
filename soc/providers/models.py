@@ -16,6 +16,7 @@ class Outcome(StrEnum):
     SERVER_ERROR = "server_error"
     BUDGET_EXHAUSTED = "budget_exhausted"
     CACHE_MISS = "cache_miss"
+    COOPERATION_BLOCKED = "cooperation_blocked"
 
 
 class Mode(StrEnum):

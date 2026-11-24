@@ -14,7 +14,8 @@
 - Decide whether `ALL` should cover only normative force, polarity and numbers. The M2 agreement table currently requires `ALL` for normative meaning.
 - Confirm the Align standing analysis and the interpretation of announced rules as possible prompt compliance.
 - M3 standing policy: confirm the recent-check window, minimum evidence, relative importance of runtime check kinds, sanction thresholds, lighter-vote multiplier and probation recovery rule. Initial configurable defaults are in `config/m3-cooperation.yaml`; the runners do not yet enforce them.
-- M3 weighted approval: specify how standing weights affect QUORUM while preserving authenticated approvers and ALL normative unanimity. No weighted threshold is implemented yet.
+- M3 weighted approval: confirm the opt-in conservative rule in `M3_STATUS.md`: preserve the existing distinct-approver count and additionally require a strict weighted majority. It can veto a quorum but never replace two approvers with one or relax ALL. Numeric standing policy and this rule are provisional, not registered settings.
+- M3 automatic replacement: identify authorized replacement candidates for each role, and the policy for a reviewer who loses reviewing permission. Current opt-in runs stop with `cooperation_blocked`; no model is substituted automatically.
 - M3 analysis: the exit test says label swapping preserves every p-value, but the Form non-inferiority test is one-sided with a fixed margin. Confirm that invariance applies to two-sided paired tests, while non-inferiority is tested with its direction/margin transformed explicitly.
 - Confirm the executor successor policy. The plan defaults to the same family’s small model and rotates the family.
 - Confirm the number of Pilot B episodes, the main-run host, and whether to register publicly on OSF.

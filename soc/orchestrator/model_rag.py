@@ -202,6 +202,8 @@ async def run_model_rag_episode(
     retrieval: RetrievalConfig | None = None,
 ) -> RunResult:
     """Use the model protocol with the baseline's retrieval and output-text search."""
+    if spec.cooperation is not None:
+        raise ValueError("cooperation runtime observation requires SOC memory")
     team.validate(spec, client)
     spec = spec.model_copy(update={"max_in_flight": 1})
     episode = validate_runtime(load_runtime(episode_dir))

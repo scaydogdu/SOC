@@ -2,7 +2,7 @@
 
 M0 builds the foundations for testing whether a task-owned ledger preserves translation decisions across model replacement and brief changes. The milestone brief is in [CODEX_BRIEF_M0.md](CODEX_BRIEF_M0.md).
 
-M3 has started with a standalone runtime standing policy in `soc.cooperation.standing`. `StandingTracker` consumes ordered, attributed `RuntimeCheck` observations and recomputes recent standing, cumulative sanction permissions and vote weights. `config/m3-cooperation.yaml` holds provisional thresholds. The successor policy follows the plan's twelve-episode counterbalancing. This component does not yet enforce sanctions or weighted voting in the runners; see [M3_STATUS.md](M3_STATUS.md) for verification and remaining work. M2 live validation remains outstanding.
+M3 supplies runtime standing in `soc.cooperation.standing` and an opt-in observer in `soc.cooperation.runtime`. Sequential SOC conditions can enable `run.cooperation` with an episode position, visibility and policy. The observer derives checks from verified ledger events and persists an append-only cooperation sidecar; the model runner uses the resulting voting/review permissions and weights. Weighted approvals preserve existing distinct-approver floors and additionally require a strict weighted majority. Replacement or an ineligible reviewer stops the run without substituting a model. Defaults remain provisional, and visibility currently controls successor transfer only; announced prompts are unfinished. See [M3_STATUS.md](M3_STATUS.md) for tests, configuration and remaining work. M2 live validation remains outstanding.
 
 ## Setup and checks
 
