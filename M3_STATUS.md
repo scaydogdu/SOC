@@ -68,7 +68,7 @@ baseline: 34/34 branches (100.0%)
 2. Automatic replacement needs an authorized candidate policy. Current opt-in runs stop with `cooperation_blocked` when replacement is required or the reviewer loses review permission.
    `CODEX_BRIEF_HELD_UNKNOWN.md` is implemented in the section below. Live meaning-model selection and instrument calibration remain open.
 3. Announced/hidden prompt implementation and offline golden tests are delivered below. Validated roster tokenizer assets and provider-specific token parity remain pending.
-4. Private planted-error injection/reversion and proof that no planted span remains before scoring.
+4. Private planted-error injection/reversion and guarded scoring are delivered below. Pilot B still needs reviewed natural-error observations and a selected share; no live intervention was run.
 5. All-seed evaluation of accepted, rejected and unfinished outputs; separate fidelity, preference and continuity scores.
 6. Blinded flagship judge panel and input scrub tests.
 7. All registered metrics and hand-counted log fixtures.
@@ -88,7 +88,7 @@ Runtime extraction currently handles:
 - The first gate check for each authored build. Later rechecks do not create extra observations. Attribution follows `ChunkBuilt.actor`, including when a successor runs a final sweep over its predecessor's work. Administrative, artifact, provisional and unknown findings do not establish defection. A rule change since the build's observed snapshot also yields unknown rather than punishing compliance with the earlier authorized rules.
 - Flags leading to triad resolutions as passes. Principal escalation is unknown, since escalation does not establish that the flag was wrong.
 - Rulings won with evidence as passes for approving workers whose cross-examination answers survived the existing citation validator. The public resolution trace now records these supporters and rational vote weights. Losing a vote is not treated as incorrectness.
-- Moderation results against subsequent runtime gate checks. A content violation at a moderated sentence is a failed review check; a passing gate is a pass. Failures elsewhere and administrative uncertainty are unknown. Private planted-error records and evaluation correctness never supply these labels. Planted-error catch/miss instrumentation still remains to be built.
+- Moderation results against subsequent runtime gate checks. A content violation at a moderated sentence is a failed review check; a passing gate is a pass. Failures elsewhere and administrative uncertainty are unknown. Private planted-error records and evaluation correctness never supply these labels. Private exposure/reversion instrumentation is delivered below; per-plant detection metrics still belong to the pending metrics/evaluation pass.
 
 ### Opt-in behavior
 
@@ -334,3 +334,108 @@ baseline: 34/34 branches (100.0%)
 
 The three deselected nightly checks were not run. No live provider validation
 or campaign change is included in this result.
+
+## Private planted errors and reversion — 24 November 2026
+
+Implemented M3 section 8 item 4 as an explicit opt-in draft intervention. The
+SOC triad, RAG triad and single-worker RAG runners accept `draft_intervention`;
+its default is `None`. The controller runs after a parsed draft and before
+review/gating. Raw model replies remain in their ordinary cache, so recovery
+reapplies the same intervention exactly once rather than caching a fabricated
+model response. The opaque plan fingerprint binds run configuration/resume.
+Ordinary runs keep their previous model messages and configuration identity.
+
+`eval.planted.PlantPlan` binds each plant to an authored natural-error
+observation of the same kind in the same one-based chunk. The observation names
+a reviewed runtime reference; this is calibration input, not an automatically
+verified semantic label. An edit specifies its sentence, worker and zero-based
+attempt, plus exact original/planted spans. Missing/repeated original spans,
+existing planted text, duplicate targets and overlapping/cascading edits are
+refused. The example `config/m3-plants.example.json` is illustrative only, not a
+calibrated plan. No share, random allocation or synthesis policy was selected.
+Use the same reviewed plan for each condition; mismatched spans stop the run
+rather than changing the assignment silently.
+
+`PlantSession` stores the plan and before/after exposures in an append-only
+private SQLite journal, bound to its run. Its directory must be outside all
+supplied episode, run and prompt roots; it uses directory mode 0700 and database
+mode 0600, and refuses database symlinks/non-files. Constructor callers must
+supply those public roots. Runtime imports only the narrow `DraftIntervention`
+protocol in `soc/interventions.py`; it neither imports evaluation code nor
+receives private paths/record fields through that protocol. Only ordinary
+translation text enters subsequent prompts. Existing runtime checks observe
+behavior normally; private catch/miss ground truth never updates standing.
+
+### Reversion and scoring boundary
+
+`session.score(outputs, scorer)` restores recorded edits and asserts no active
+planted span remains before calling the scorer. The scorer receives only chunk
+translations. Restoration replaces the planted span with the original worker
+span; it does not correct unrelated natural mistakes or use expected answers.
+Already repaired spans and missing/unfinished chunks are preserved. Other edits
+outside the span survive. Unrecognized paraphrases, duplicate/propagated planted
+text, changed bindings and altered exposure records stop scoring for review.
+This conservative exact-span instrument does not claim to reverse arbitrary
+semantic paraphrases.
+
+Raw workflow artifacts, outcomes, checks and costs are retained. A separate clean
+export can be produced without overwriting raw output:
+
+```sh
+uv run --locked --offline python -m eval.planted PRIVATE_DIR RUN/final_chunks.jsonl RUN/restored.jsonl --run-id RUN_ID
+uv run --locked --offline python -m eval.continuity JUDGMENTS.jsonl RUN --private-plants PRIVATE_DIR --restored-output RUN/restored.jsonl
+```
+
+Author independent judgments against the restored export. For a registered
+intervention run, the continuity CLI refuses scoring unless both private records
+and the restored export are supplied. It checks the plan fingerprint and compares
+the export against freshly verified reversion. This extends the current
+continuity boundary; the all-seed fidelity/preference evaluator and blinded panel
+remain the next M3 work, and must use this same clean-output boundary.
+
+### New scenarios and limits
+
+Tests were added first and failed on the missing controller module. New tests:
+
+- `test_private_plant_matches_natural_type_and_reverts_before_scorer`
+- `test_plants_require_observed_kind_from_same_chunk_and_unambiguous_spans`
+- `test_resume_is_idempotent_and_rejects_changed_draft_or_plan`
+- `test_scoring_refuses_ambiguous_rewrites_and_propagation_without_calling_scorer`
+- `test_private_records_cannot_live_under_public_or_prompt_roots`
+- `test_real_triads_can_miss_a_plant_and_replay_then_score_only_restored_text`
+  (SOC/RAG, with and without a reviewer challenge; a plant can survive voting)
+- `test_reversion_cli_preserves_raw_and_continuity_requires_verified_export`
+- `test_private_journal_rejects_record_tampering_and_duplicate_inputs`
+- `test_single_worker_rag_uses_same_intervention_and_checkpointed_output`
+- `test_private_database_rejects_symlinks_and_non_files`
+
+Canary IDs and observation references never appear in captured outgoing prompts.
+Record/resume and strict replay reproduce the same contaminated workflow output,
+then the same restored scoring text, without extra provider calls. Tests use fake
+models only. Coverage includes a separate 90% branch floor for `eval/planted.py`.
+No live intervention, reservation settlement, cap change or policy decision was
+made. The retained $34.9568 reservation, Pilot B share selection and validated
+provider tokenizer assets remain unchanged/pending; M2 live and M3 remain open.
+
+`ruff format` ran. Final `./scripts/check` exited 0:
+
+```text
+All checks passed!
+125 files already formatted
+Success: no issues found in 62 source files
+Contracts: 1 kept, 0 broken.
+423 passed, 3 deselected in 75.22s (0:01:15)
+planted_errors: 58/60 branches (96.7%)
+held_reporting: 28/30 branches (93.3%)
+cooperation: 113/118 branches (95.8%)
+timeline: 35/36 branches (97.2%)
+ledger: 363/396 branches (91.7%)
+episode: 60/62 branches (96.8%)
+segmenter: 67/68 branches (98.5%)
+providers: 155/166 branches (93.4%)
+checker: 116/120 branches (96.7%)
+baseline: 34/34 branches (100.0%)
+```
+
+The three deselected nightly checks were not run. No provider token-parity,
+live calibration or complete M3 evaluation claim is implied by these checks.

@@ -52,7 +52,7 @@ branch = true
 source = ["."]
 
 [tool.coverage.report]
-include = ["soc/cooperation/*", "soc/ledger/*", "soc/episode.py", "soc/tasks/*", "soc/providers/*", "soc/enforce/*", "soc/baseline/*", "eval/episode.py", "eval/continuity.py", "analysis/timeline.py", "analysis/unknowns.py"]
+include = ["soc/cooperation/*", "soc/ledger/*", "soc/episode.py", "soc/tasks/*", "soc/providers/*", "soc/enforce/*", "soc/baseline/*", "eval/episode.py", "eval/continuity.py", "eval/planted.py", "analysis/timeline.py", "analysis/unknowns.py"]
 
 [tool.importlinter]
 root_packages = ["soc", "eval", "analysis"]

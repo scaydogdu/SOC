@@ -12,6 +12,7 @@ from soc.cooperation.runtime import CooperationJournal
 from soc.enforce.checker import Checker
 from soc.enforce.meaning import MeaningResolver, ModelMeaningResolver
 from soc.episode import Brief, Clause
+from soc.interventions import DraftIntervention
 from soc.ledger.models import (
     BINDING_STATES,
     Actor,
@@ -154,6 +155,7 @@ async def run_model_ledger_episode(
     team: ModelTeam,
     agreement: AgreementRules,
     meaning_resolver: MeaningResolver | None = None,
+    draft_intervention: DraftIntervention | None = None,
 ) -> LedgerRunResult:
     """Run the model-backed SOC condition with recording, replay, or fake routes."""
     if client.run_id != spec.run_id or client.run_dir != run_dir.resolve():
@@ -167,7 +169,16 @@ async def run_model_ledger_episode(
             spec.replicate,
             experiment.max_output_tokens,
         )
-    worker = ModelTriad(spec, experiment, client, team, agreement, principal, checker)
+    worker = ModelTriad(
+        spec,
+        experiment,
+        client,
+        team,
+        agreement,
+        principal,
+        checker,
+        draft_intervention=draft_intervention,
+    )
     if spec.cooperation is not None:
         if spec.cooperation.prompts is None:
             raise ValueError("cooperation requires pinned prompt tokenizer settings")
@@ -238,6 +249,8 @@ class ModelTriad:
         agreement: AgreementRules,
         principal: PrincipalSimulator,
         checker: Checker,
+        *,
+        draft_intervention: DraftIntervention | None = None,
     ) -> None:
         self.spec = spec
         self.experiment = experiment
@@ -247,6 +260,9 @@ class ModelTriad:
             "team": asdict(team),
             "agreement": agreement.model_dump(mode="json"),
         }
+        self.draft_intervention = draft_intervention
+        if draft_intervention is not None:
+            self.configuration["draft_intervention"] = draft_intervention.fingerprint
         self.principal = principal
         self.checker = checker
         self.cooperation: CooperationJournal | None = None
@@ -546,9 +562,14 @@ class ModelTriad:
                     else {}
                 ),
             )
+            output = ChunkOutput(sentences=reply.sentences)
+            if self.draft_intervention is not None:
+                output = self.draft_intervention.apply(
+                    task.chunk.position, task.round_number, actor.agent, output
+                )
             return Draft(
                 actor.agent,
-                ChunkOutput(sentences=reply.sentences),
+                output,
                 tuple(reply.manifest),
             )
 

@@ -1,0 +1,23 @@
+{
+  "observations": [
+    {
+      "id": "example-natural-number-error",
+      "chunk": 1,
+      "kind": "numbers",
+      "runtime_ref": "REPLACE_WITH_REVIEWED_PILOT_ERROR_REFERENCE"
+    }
+  ],
+  "plants": [
+    {
+      "id": "example-number-probe",
+      "chunk": 1,
+      "sentence_id": "9999-1-s01",
+      "kind": "numbers",
+      "natural_error_id": "example-natural-number-error",
+      "original": "3 dakika",
+      "planted": "4 dakika",
+      "worker": "executor",
+      "round_number": 0
+    }
+  ]
+}

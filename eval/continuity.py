@@ -7,6 +7,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from eval.planted import load_session, read_outputs
 from soc.episode import NonBlank, Record
 
 
@@ -97,7 +98,33 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("assessments", type=Path)
     parser.add_argument("run", type=Path)
+    parser.add_argument("--private-plants", type=Path)
+    parser.add_argument("--restored-output", type=Path)
     args = parser.parse_args()
+    manifest_path = args.run / "run.json"
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+    protocol = manifest.get("model_protocol") or {}
+    intervention = manifest.get("draft_intervention") or protocol.get(
+        "draft_intervention"
+    )
+    if intervention:
+        if args.private_plants is None or args.restored_output is None:
+            parser.error(
+                "planted runs require --private-plants and --restored-output; assess the restored output before scoring"
+            )
+        session = load_session(
+            args.private_plants,
+            manifest["run_id"],
+            public_roots=(args.run, args.restored_output.parent),
+        )
+        if session.fingerprint != intervention:
+            raise ValueError("private plant plan differs from run fingerprint")
+        if session.revert(
+            read_outputs(args.run / "final_chunks.jsonl")
+        ) != read_outputs(args.restored_output):
+            raise ValueError(
+                "restored evaluation output differs from verified reversion"
+            )
     judgments = [
         UseAssessment.model_validate_json(line)
         for line in args.assessments.read_text().splitlines()

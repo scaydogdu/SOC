@@ -20,6 +20,7 @@ from soc.enforce.meaning import (
     assess,
 )
 from soc.episode import Brief, Episode, NonBlank, load_runtime, validate_runtime
+from soc.interventions import DraftIntervention
 from soc.ledger.models import GateFinding, HeldResolution
 from soc.memory import ChunkInput, ChunkOutput, DecisionChange, Memory, PromptContext
 from soc.orchestrator.journal import Attempt, Journal, open_journal
@@ -136,6 +137,7 @@ async def run_episode(
     prompts_dir: Path = DEFAULT_PROMPTS,
     triad_worker: RAGTriadWorker | None = None,
     meaning_resolver: MeaningResolver | None = None,
+    draft_intervention: DraftIntervention | None = None,
 ) -> RunResult:
     """Run or resume using a fresh memory instance and model client for this run."""
     if (
@@ -173,10 +175,14 @@ async def run_episode(
         },
     }
     if triad_worker is not None:
+        if draft_intervention is not None:
+            raise ValueError("configure draft intervention on the triad worker only")
         if worker is not None:
             raise ValueError("configure one worker protocol per RAG run")
         manifest["triad_worker"] = triad_worker.fingerprint
         manifest["model_protocol"] = triad_worker.model_protocol
+    if draft_intervention is not None:
+        manifest["draft_intervention"] = draft_intervention.fingerprint
     manifest_json = json_text(manifest)
     ensure_no_credentials(
         configured_credentials(), manifest_json, episode.model_dump_json()
@@ -202,6 +208,7 @@ async def run_episode(
             MeaningStore(run_dir / "meaning.sqlite"),
             meaning_resolver,
             usage_restored,
+            draft_intervention,
         )
         if not (run_dir / "run.json").exists():
             execution.publish(run_dir, manifest, "running", chunks)
@@ -254,6 +261,7 @@ class _Execution:
         meaning: MeaningStore,
         meaning_resolver: MeaningResolver | None,
         usage_restored: bool,
+        draft_intervention: DraftIntervention | None,
     ) -> None:
         self.spec = spec
         self.experiment = experiment
@@ -275,6 +283,7 @@ class _Execution:
         self.attempts: list[Attempt] = []
         self.meaning, self.meaning_resolver = meaning, meaning_resolver
         self.usage_restored = usage_restored
+        self.draft_intervention = draft_intervention
         # Late resolutions must not affect earlier drafting when replaying the schedule.
         self.resolutions: dict[str, HeldResolution] = {}
         self.resolution_events: set[str] = set()
@@ -375,16 +384,25 @@ class _Execution:
                     revisions,
                 )
             )
+            if recorded.output is not None:
+                ensure_no_credentials(
+                    configured_credentials(), recorded.output.model_dump_json()
+                )
             self.journal.complete(call_id, recorded)
         elif recorded is None:
             response = await self.worker(request, recover=recovering)
-            if response.parsed is not None:
+            translated = response.parsed
+            if translated is not None and self.draft_intervention is not None:
+                translated = self.draft_intervention.apply(
+                    position, round_number, "executor", translated
+                )
+            if translated is not None:
                 ensure_no_credentials(
-                    configured_credentials(), response.parsed.model_dump_json()
+                    configured_credentials(), translated.model_dump_json()
                 )
             recorded = Attempt(
                 outcome=response.reply.outcome,
-                output=response.parsed,
+                output=translated,
                 input_tokens=response.reply.input_tokens,
                 output_tokens=response.reply.output_tokens,
                 estimated_cost_usd=response.estimated_cost_usd,

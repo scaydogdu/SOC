@@ -6,6 +6,7 @@ from soc.baseline.memory import RAGMemory
 from soc.baseline.retrieval import Embedder, RetrievalConfig
 from soc.enforce.checker import Checker
 from soc.episode import Episode, load_runtime, reusable_term_sites, validate_runtime
+from soc.interventions import DraftIntervention
 from soc.ledger.models import (
     Actor,
     CommitmentVersion,
@@ -200,6 +201,7 @@ async def run_model_rag_episode(
     agreement: AgreementRules,
     embedder: Embedder,
     retrieval: RetrievalConfig | None = None,
+    draft_intervention: DraftIntervention | None = None,
 ) -> RunResult:
     """Use the model protocol with the baseline's retrieval and output-text search."""
     if spec.cooperation is not None:
@@ -213,7 +215,16 @@ async def run_model_rag_episode(
     )
     retrieval = retrieval or RetrievalConfig()
     memory = RAGMemory(embedder, checker, retrieval=retrieval, episode=episode)
-    triad = ModelTriad(spec, experiment, client, team, agreement, principal, checker)
+    triad = ModelTriad(
+        spec,
+        experiment,
+        client,
+        team,
+        agreement,
+        principal,
+        checker,
+        draft_intervention=draft_intervention,
+    )
     return await run_episode(
         episode_dir,
         run_dir,
