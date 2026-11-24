@@ -67,7 +67,7 @@ baseline: 34/34 branches (100.0%)
 1. Review the provisional weighted approval policy and numeric standing policy. Broaden instrument validation on Pilot A observations.
 2. Automatic replacement needs an authorized candidate policy. Current opt-in runs stop with `cooperation_blocked` when replacement is required or the reviewer loses review permission.
    `CODEX_BRIEF_HELD_UNKNOWN.md` is implemented in the section below. Live meaning-model selection and instrument calibration remain open.
-3. Announced/hidden prompts, tokenizer-measured length matching and golden leakage tests.
+3. Announced/hidden prompt implementation and offline golden tests are delivered below. Validated roster tokenizer assets and provider-specific token parity remain pending.
 4. Private planted-error injection/reversion and proof that no planted span remains before scoring.
 5. All-seed evaluation of accepted, rejected and unfinished outputs; separate fidelity, preference and continuity scores.
 6. Blinded flagship judge panel and input scrub tests.
@@ -252,3 +252,85 @@ providers: 155/166 branches (93.4%)
 checker: 116/120 branches (96.7%)
 baseline: 34/34 branches (100.0%)
 ```
+
+## Announced/hidden cooperation prompts — 24 November 2026
+
+Implemented M3 section 8 item 3 behind the existing opt-in cooperation setting.
+Announced system paragraphs state the configured recent-check rules, strict
+sanction thresholds, voting/review permissions, recovery, probation and the
+recipient's own standing and weight. Hidden paragraphs contain neutral document
+facts and stay identical across standing changes. No other agent's score or any
+private evaluation/injector input is read.
+
+Both treatments are padded independently to a configurable fixed budget
+(default 1,024 tokens). Fixed length prevents hidden prompt length from encoding
+standing. The renderer checks both the treatment sections and assembled system
+messages with a strict under-2% difference. Each model needs an explicit local
+Hugging Face-compatible tokenizer JSON, SHA-256 and provenance identifier.
+Asset truncation and padding are disabled during measurement.
+Missing models, changed bytes, unreadable files and unmatchable budgets fail
+before a model request. The executor successor also needs an asset. Install the
+optional runtime dependency with `uv sync --locked --extra cooperation`; dev
+installs include it for offline checks. Configuration shape is documented in
+`config/m3-prompt-tokenizers.example.yaml`.
+
+`triad-prompt-*.json` records section/system counts and tokenizer provenance
+outside the model messages. Runtime prompt variants reach draft, review,
+cross-examination, classification, discussion and voting calls; principal and
+meaning-check calls retain their existing inputs. Non-cooperation runs retain
+their previous model messages. Resume verifies the saved system text and audit.
+
+`cooperation.sqlite` now freezes each chunk/repair attempt's participant models,
+standing and source ledger prefix before requests. Both voting and displayed
+standing use that snapshot. Resume rederives it from the original verified ledger
+prefix; newly appended checks affect the next attempt. Append-only triggers,
+participant matching and source/snapshot verification reject changed contexts.
+Replay reproduces snapshots and prepared prompts; source hashes stay bound to
+each run's own ledger (output references can differ between directories).
+
+### Validation limits and remaining work
+
+The committed BPE tokenizer is explicitly a synthetic local reference, trained
+only on public prompt text. Golden tests prove local matching and leakage
+properties, not equivalence to hosted provider tokenizers. Provider-specific
+assets and token parity are still pending; no real provider calls were made.
+The budget, policy and padding wording remain configurable provisional choices
+in `OPEN_QUESTIONS.md`. The retained $34.9568 reservation and campaign cap are
+unchanged. M2 live conditions and the rest of M3 remain incomplete. Next is
+private planted-error injection/reversion with a clean-output scoring gate.
+
+### New and extended tests
+
+- `test_prompt_pair_is_matched_and_hidden_is_independent_of_standing`
+- `test_prompt_assets_are_pinned_and_missing_models_fail_closed`
+- `test_cooperation_golden_prompt_and_configured_rules`
+- `test_unmatchable_tokenizer_is_refused`
+- `test_assembled_system_length_guard_refuses_a_mismatched_pair`
+- `test_cooperation_model_run_requires_assets_before_any_call`
+- `test_token_counts_ignore_asset_truncation_and_padding`
+- `test_attempt_freezes_standing_across_resume_and_next_attempt_uses_new_checks`
+- Extended `test_model_triad_records_reusable_term_and_resumes_through_shared_client`
+  for both visibility arms: request leakage, local section/system counts,
+  byte-identical prepared prompts and frozen standings across replay/resume.
+
+`ruff format` ran. Final `./scripts/check` exited 0:
+
+```text
+All checks passed!
+122 files already formatted
+Success: no issues found in 60 source files
+Contracts: 1 kept, 0 broken.
+410 passed, 3 deselected in 73.66s (0:01:13)
+held_reporting: 20/22 branches (90.9%)
+cooperation: 113/118 branches (95.8%)
+timeline: 35/36 branches (97.2%)
+ledger: 363/396 branches (91.7%)
+episode: 60/62 branches (96.8%)
+segmenter: 67/68 branches (98.5%)
+providers: 155/166 branches (93.4%)
+checker: 116/120 branches (96.7%)
+baseline: 34/34 branches (100.0%)
+```
+
+The three deselected nightly checks were not run. No live provider validation
+or campaign change is included in this result.

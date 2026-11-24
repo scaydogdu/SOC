@@ -7,7 +7,8 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from soc.cooperation.runtime import CooperationJournal, actor_key
+from soc.cooperation.prompts import PromptPair, PromptRenderer
+from soc.cooperation.runtime import CooperationJournal
 from soc.enforce.checker import Checker
 from soc.enforce.meaning import MeaningResolver, ModelMeaningResolver
 from soc.episode import Brief, Clause
@@ -113,6 +114,7 @@ class _PreparedCall(BaseModel, extra="forbid"):
     model: str
     schema_name: str
     messages: tuple[Message, ...]
+    cooperation_audit: dict[str, str | int] | None = None
 
 
 class TriadCallFailed(Exception):
@@ -167,6 +169,18 @@ async def run_model_ledger_episode(
         )
     worker = ModelTriad(spec, experiment, client, team, agreement, principal, checker)
     if spec.cooperation is not None:
+        if spec.cooperation.prompts is None:
+            raise ValueError("cooperation requires pinned prompt tokenizer settings")
+        worker.prompt_renderer = PromptRenderer(
+            spec.cooperation.prompts, spec.cooperation.policy
+        )
+        for model in (
+            spec.initial_model,
+            spec.successor_model,
+            team.peer_model,
+            team.reviewer_model,
+        ):
+            worker.prompt_renderer.count(model, "")
         worker.cooperation = CooperationJournal(
             run_dir / "cooperation.sqlite",
             spec.run_id,
@@ -236,6 +250,7 @@ class ModelTriad:
         self.principal = principal
         self.checker = checker
         self.cooperation: CooperationJournal | None = None
+        self.prompt_renderer: PromptRenderer | None = None
         self.peer = Actor(agent="peer", model=team.peer_model, role="worker")
         self.reviewer = Actor(
             agent="reviewer", model=team.reviewer_model, role="reviewer"
@@ -253,18 +268,25 @@ class ModelTriad:
 
     async def _run(self, ledger: Ledger, task: ChunkTask) -> WorkerDraft | Outcome:
         weights: dict[str, Fraction] | None = None
+        prompt_sections: dict[str, PromptPair] | None = None
         if self.cooperation is not None:
-            tracker = self.cooperation.sync(ledger)
             actors = (task.actor, self.peer, self.reviewer)
-            standings = {
-                actor.agent: tracker.snapshot(actor_key(actor)) for actor in actors
-            }
+            standings = self.cooperation.freeze(
+                ledger, task.chunk_id, task.round_number, actors
+            )
             if (
                 any(state.replace for state in standings.values())
                 or not standings[self.reviewer.agent].can_review
             ):
                 return Outcome.COOPERATION_BLOCKED
             weights = {agent: state.vote_weight for agent, state in standings.items()}
+            if self.prompt_renderer is None:
+                raise ValueError("cooperation requires a prompt renderer")
+            prompt_sections = {}
+            for actor in actors:
+                prompt_sections[actor.agent] = self.prompt_renderer.pair(
+                    actor.model, standings[actor.agent]
+                )
         used_versions = [
             VersionRef(commitment_id=row.commitment_id, version=row.version)
             for row in task.commitments.values()
@@ -318,6 +340,7 @@ class ModelTriad:
             TriadMemoryView(read_evidence, hints, answer, record_flag),
             [],
             weights=weights,
+            prompt_sections=prompt_sections,
         )
         for original, actor in zip(originals, (task.actor, self.peer), strict=True):
             capture_worker_draft(
@@ -352,6 +375,7 @@ class ModelTriad:
         usage: list[tuple[int, int, float]],
         *,
         weights: Mapping[str, Fraction] | None = None,
+        prompt_sections: Mapping[str, PromptPair] | None = None,
     ) -> tuple[TriadResult, tuple[Draft, Draft]]:
         actors = {
             actor.agent: actor for actor in (task.actor, self.peer, self.reviewer)
@@ -368,6 +392,16 @@ class ModelTriad:
             payload: object,
         ) -> T:
             call_id = f"{task.chunk_id}/r{task.round_number}/{step}"
+            audit = None
+            if prompt_sections is not None:
+                if self.prompt_renderer is None or self.spec.cooperation is None:
+                    raise ValueError("cooperation prompt configuration is missing")
+                instruction, audit = self.prompt_renderer.system(
+                    actor.model,
+                    instruction,
+                    prompt_sections[actor.agent],
+                    self.spec.cooperation.visibility,
+                )
             messages = (
                 Message(role="system", content=instruction),
                 Message(role="user", content=json_text(payload)),
@@ -378,6 +412,7 @@ class ModelTriad:
                 model=actor.model,
                 schema_name=schema.__name__,
                 messages=messages,
+                cooperation_audit=audit,
             )
             if path.exists():
                 stored = _PreparedCall.model_validate_json(
@@ -389,6 +424,13 @@ class ModelTriad:
                     prepared.schema_name,
                 ):
                     raise ValueError(f"prepared triad call changed for {call_id}")
+                if (
+                    stored.cooperation_audit != audit
+                    or stored.messages[0] != messages[0]
+                ):
+                    raise ValueError(
+                        f"prepared triad system prompt changed for {call_id}"
+                    )
                 prepared = stored
             else:
                 raw = prepared.model_dump_json()

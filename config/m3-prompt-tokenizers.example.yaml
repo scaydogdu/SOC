@@ -1,0 +1,26 @@
+# Merge under a LedgerRunSpec's cooperation setting. Opt-in, provisional defaults.
+# Replace ALL paths/hashes/identifiers with independently validated tokenizer assets.
+# A compatible local tokenizer file does not establish equivalence to a hosted model.
+# Do not use the test reference tokenizer to claim provider token parity.
+cooperation:
+  episode_position: 1
+  visibility: hidden  # or announced; separate run IDs/directories required
+  prompts:
+    section_tokens: 1024
+    tokenizers:
+      family-a/main:
+        path: /absolute/path/executor-tokenizer.json
+        sha256: REPLACE_WITH_64_LOWERCASE_HEX_CHARACTERS
+        identifier: executor-tokenizer-revision-and-provenance
+      family-a/small:
+        path: /absolute/path/successor-tokenizer.json
+        sha256: REPLACE_WITH_64_LOWERCASE_HEX_CHARACTERS
+        identifier: successor-tokenizer-revision-and-provenance
+      family-b/main:
+        path: /absolute/path/peer-tokenizer.json
+        sha256: REPLACE_WITH_64_LOWERCASE_HEX_CHARACTERS
+        identifier: peer-tokenizer-revision-and-provenance
+      family-c/main:
+        path: /absolute/path/reviewer-tokenizer.json
+        sha256: REPLACE_WITH_64_LOWERCASE_HEX_CHARACTERS
+        identifier: reviewer-tokenizer-revision-and-provenance

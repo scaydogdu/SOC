@@ -1164,6 +1164,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+cooperation = [
+    { name = "tokenizers" },
+]
 embeddings = [
     { name = "huggingface-hub" },
     { name = "sentence-transformers" },
@@ -1178,6 +1181,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "pytest-socket" },
     { name = "ruff" },
+    { name = "tokenizers" },
     { name = "types-pyyaml" },
 ]
 
@@ -1190,8 +1194,9 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6,<7" },
     { name = "rdflib", specifier = ">=7,<8" },
     { name = "sentence-transformers", marker = "extra == 'embeddings'", specifier = ">=5,<6" },
+    { name = "tokenizers", marker = "extra == 'cooperation'", specifier = ">=0.23,<1" },
 ]
-provides-extras = ["embeddings"]
+provides-extras = ["cooperation", "embeddings"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1202,6 +1207,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "pytest-socket" },
     { name = "ruff" },
+    { name = "tokenizers", specifier = ">=0.23,<1" },
     { name = "types-pyyaml" },
 ]
 

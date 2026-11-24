@@ -9,6 +9,7 @@ from typing import Annotated
 
 from pydantic import Field
 
+from soc.cooperation.prompts import PromptPolicy
 from soc.cooperation.standing import (
     CheckKind,
     CheckOutcome,
@@ -37,6 +38,7 @@ class CooperationSettings(Record):
     episode_position: Annotated[int, Field(ge=1, le=12)]
     visibility: Visibility
     policy: CooperationPolicy = Field(default_factory=CooperationPolicy)
+    prompts: PromptPolicy | None = None
 
 
 def _json(value: object) -> str:
@@ -347,3 +349,58 @@ class CooperationJournal:
                     "INSERT INTO source_events VALUES (?, ?, ?)", derived[len(stored) :]
                 )
         return projection.tracker
+
+    def freeze(
+        self,
+        ledger: Ledger,
+        chunk_id: str,
+        round_number: int,
+        actors: tuple[Actor, ...],
+    ) -> dict[str, Standing]:
+        """Bind an attempt to its original public evidence, including on resume."""
+        self.sync(ledger)
+        events = ledger.history()
+        with closing(sqlite3.connect(self.path)) as db:
+            db.executescript("""
+                CREATE TABLE IF NOT EXISTS attempts (chunk TEXT NOT NULL, round INTEGER NOT NULL, source_count INTEGER NOT NULL, source_hash TEXT NOT NULL, snapshot TEXT NOT NULL CHECK(json_valid(snapshot)), PRIMARY KEY(chunk,round)) STRICT;
+                CREATE TRIGGER IF NOT EXISTS attempts_no_update BEFORE UPDATE ON attempts BEGIN SELECT RAISE(ABORT, 'cooperation is append-only'); END;
+                CREATE TRIGGER IF NOT EXISTS attempts_no_delete BEFORE DELETE ON attempts BEGIN SELECT RAISE(ABORT, 'cooperation is append-only'); END;
+            """)
+            with db:
+                db.execute("BEGIN IMMEDIATE")
+                stored = db.execute(
+                    "SELECT source_count,source_hash,snapshot FROM attempts WHERE chunk=? AND round=?",
+                    (chunk_id, round_number),
+                ).fetchone()
+                count = len(events) if stored is None else stored[0]
+                if not 0 <= count <= len(events):
+                    raise ValueError("cooperation attempt source prefix changed")
+                source_hash = events[count - 1].hash if count else ""
+                projection = _Projection(self.settings, self.participants)
+                for event in events[:count]:
+                    projection.rows(event)
+                if (
+                    len(actors) != len(projection.actors)
+                    or {actor.agent: actor for actor in actors} != projection.actors
+                ):
+                    raise ValueError(
+                        "cooperation attempt snapshot changed: participants differ"
+                    )
+                states = {
+                    actor.agent: projection.tracker.snapshot(actor_key(actor))
+                    for actor in actors
+                }
+                snapshot = _json(
+                    [
+                        [actor.model_dump(mode="json"), _standing(states[actor.agent])]
+                        for actor in actors
+                    ]
+                )
+                if stored is None:
+                    db.execute(
+                        "INSERT INTO attempts VALUES (?,?,?,?,?)",
+                        (chunk_id, round_number, count, source_hash, snapshot),
+                    )
+                elif stored[1:] != (source_hash, snapshot):
+                    raise ValueError("cooperation attempt snapshot changed")
+        return states

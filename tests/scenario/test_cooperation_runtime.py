@@ -509,3 +509,49 @@ def test_model_runner_stops_before_calls_when_review_or_replacement_is_sanctione
             (),
         )
         assert asyncio.run(triad(ledger, task)) is Outcome.COOPERATION_BLOCKED
+
+
+def test_attempt_freezes_standing_across_resume_and_next_attempt_uses_new_checks(
+    tmp_path,
+):
+    with open_run_ledger(TOY, tmp_path / "ledger.sqlite", "toy", authority=POLICY) as (
+        _,
+        ledger,
+    ):
+        _ratify(ledger, "term", "erişim jetonu")
+        journal = CooperationJournal(
+            tmp_path / "cooperation.sqlite", "toy", settings(), (WORKER,)
+        )
+        original = journal.freeze(ledger, "chunk-1", 0, (WORKER,))
+        ledger.capture_draft(
+            WORKER,
+            "chunk-1",
+            lambda _: [
+                DecisionDeclared(
+                    ref=VersionRef(commitment_id="term", version=1),
+                    sentence_id="9999-1-s01",
+                    verified=False,
+                )
+            ],
+        )
+        assert journal.freeze(ledger, "chunk-1", 0, (WORKER,)) == original
+        assert journal.freeze(ledger, "chunk-1", 1, (WORKER,))[WORKER.agent].replace
+        with pytest.raises(ValueError, match="snapshot changed"):
+            journal.freeze(
+                ledger,
+                "chunk-1",
+                0,
+                (WORKER.model_copy(update={"model": "different"}),),
+            )
+        with sqlite3.connect(journal.path) as db:
+            with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+                db.execute("DELETE FROM attempts")
+            db.execute("DROP TRIGGER attempts_no_update")
+            db.execute("UPDATE attempts SET snapshot='[]' WHERE round=0")
+        with pytest.raises(ValueError, match="snapshot changed"):
+            journal.freeze(ledger, "chunk-1", 0, (WORKER,))
+        with sqlite3.connect(journal.path) as db:
+            db.execute("DROP TRIGGER attempts_no_update")
+            db.execute("UPDATE attempts SET source_count=9999 WHERE round=0")
+        with pytest.raises(ValueError, match="prefix changed"):
+            journal.freeze(ledger, "chunk-1", 0, (WORKER,))

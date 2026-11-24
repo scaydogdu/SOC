@@ -12,6 +12,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+cooperation = ["tokenizers>=0.23,<1"]
 embeddings = [
     "huggingface-hub>=2.4,<3",
     "sentence-transformers>=5,<6",
@@ -27,6 +28,7 @@ dev = [
     "pytest-socket",
     "ruff",
     "types-pyyaml",
+    "tokenizers>=0.23,<1",
 ]
 
 [tool.ruff.lint]

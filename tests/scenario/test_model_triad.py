@@ -18,6 +18,7 @@ from soc.providers.cache import ResponseCache
 from soc.providers.client import ModelClient, Price, ProviderLimits, Route, RunLimits
 from soc.providers.models import Mode, Outcome, Reply
 from soc.triad.agreement import AgreementRules
+from tests.scenario.test_cooperation_prompts import prompt_policy
 
 SPEC = LedgerRunSpec(
     run_id="model-triad",
@@ -66,6 +67,7 @@ def _episode(root):
 class _TranslationModels:
     def __init__(self):
         self.calls = []
+        self.messages = []
         self.interrupt = True
         self.retry_review = True
 
@@ -73,6 +75,7 @@ class _TranslationModels:
         stage = request.schema_name
         body = json.loads(request.messages[1].content)
         self.calls.append((stage, request.model, body))
+        self.messages.append(request.messages)
         if stage == "DraftReply":
             (sentence,) = body["source"]
             (commitments, manifest) = (body["commitments"], [])
@@ -151,7 +154,16 @@ def test_model_triad_records_reusable_term_and_resumes_through_shared_client(
         else SPEC.model_copy(
             update={
                 "cooperation": CooperationSettings(
-                    episode_position=1, visibility=cooperation
+                    episode_position=1,
+                    visibility=cooperation,
+                    prompts=prompt_policy(
+                        (
+                            SPEC.initial_model,
+                            SPEC.successor_model,
+                            TEAM.peer_model,
+                            TEAM.reviewer_model,
+                        )
+                    ),
                 )
             }
         )
@@ -254,7 +266,34 @@ def test_model_triad_records_reusable_term_and_resumes_through_shared_client(
     if cooperation is not None:
         import sqlite3
 
+        assert models.messages
+        for messages in models.messages:
+            system, payload = (message.content for message in messages)
+            assert "test-reference" not in system + payload
+            assert "tokenizer" not in system + payload
+            assert "cooperation_audit" not in system + payload
+            if cooperation == "hidden":
+                assert "Cooperation rules" not in system + payload
+                assert "Your score is" not in system + payload
+            else:
+                assert "Cooperation rules" in system
+                assert "Your score is" in system
+        for prepared_path in run_dir.glob("triad-prompt-*.json"):
+            prepared = json.loads(prepared_path.read_text())
+            audit = prepared["cooperation_audit"]
+            assert abs(
+                audit["announced_system_tokens"] - audit["hidden_system_tokens"]
+            ) * 50 < min(
+                audit["announced_system_tokens"], audit["hidden_system_tokens"]
+            )
+            assert (
+                prepared_path.read_bytes()
+                == (replay_dir / prepared_path.name).read_bytes()
+            )
         with sqlite3.connect(run_dir / "cooperation.sqlite") as db:
+            attempts = db.execute(
+                "SELECT * FROM attempts ORDER BY chunk,round"
+            ).fetchall()
             before = db.execute(
                 "SELECT sequence, records FROM source_events ORDER BY sequence"
             ).fetchall()
@@ -268,6 +307,9 @@ def test_model_triad_records_reusable_term_and_resumes_through_shared_client(
             assert after[: len(before)] == before
             assert all(records == "[]" for _, records in after[len(before) :])
         with sqlite3.connect(replay_dir / "cooperation.sqlite") as db:
+            assert db.execute(
+                "SELECT chunk,round,source_count,snapshot FROM attempts ORDER BY chunk,round"
+            ).fetchall() == [row[:3] + row[4:] for row in attempts]
             assert (
                 db.execute(
                     "SELECT sequence, records FROM source_events ORDER BY sequence"
